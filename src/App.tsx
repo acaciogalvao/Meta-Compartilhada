@@ -5,23 +5,27 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, MessageCircle, QrCode, Copy, CheckCircle2 } from 'lucide-react';
+import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, MessageCircle, QrCode, Copy, CheckCircle2, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
 
 export default function App() {
+  const [goalsList, setGoalsList] = useState<any[]>([]);
+  const [currentGoalId, setCurrentGoalId] = useState<string>("");
+
   const [itemName, setItemName] = useState("");
   const [totalValue, setTotalValue] = useState("");
   const [months, setMonths] = useState("12");
   const [contributionP1, setContributionP1] = useState("50");
-  const [alreadySaved, setAlreadySaved] = useState("");
+  const [savedP1, setSavedP1] = useState("");
+  const [savedP2, setSavedP2] = useState("");
   
   const [nameP1, setNameP1] = useState("Você");
   const [nameP2, setNameP2] = useState("Seu Amor");
 
   // Pix Modal State
   const [showPixModal, setShowPixModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [currentPayer, setCurrentPayer] = useState<"P1" | "P2">("P1");
   const [pixAmount, setPixAmount] = useState("");
   const [pixCode, setPixCode] = useState("");
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
@@ -32,60 +36,172 @@ export default function App() {
   const [isMockPayment, setIsMockPayment] = useState(true);
   const [paymentId, setPaymentId] = useState<string | null>(null);
 
-  // Listen to Firestore for real-time updates
+  // Fetch data from MongoDB
+  const clearGoalData = () => {
+    setCurrentGoalId("");
+    setItemName("");
+    setTotalValue("");
+    setMonths("12");
+    setContributionP1("50");
+    setNameP1("Você");
+    setNameP2("Seu Amor");
+    setSavedP1("");
+    setSavedP2("");
+  };
+
+  const populateGoalData = (data: any) => {
+    if (data.itemName !== undefined) setItemName(data.itemName);
+    if (data.totalValue !== undefined) setTotalValue(data.totalValue.toString());
+    if (data.months !== undefined) setMonths(data.months.toString());
+    if (data.contributionP1 !== undefined) setContributionP1(data.contributionP1.toString());
+    if (data.nameP1 !== undefined) setNameP1(data.nameP1);
+    if (data.nameP2 !== undefined) setNameP2(data.nameP2);
+    if (data.savedP1 !== undefined) setSavedP1(data.savedP1.toString());
+    if (data.savedP2 !== undefined) setSavedP2(data.savedP2.toString());
+  };
+
+  // Initial load
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadInitial = async () => {
       try {
-        const docSnap = await getDoc(doc(db, "goals", "default_goal"));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.itemName !== undefined) setItemName(data.itemName);
-          if (data.totalValue !== undefined) setTotalValue(data.totalValue.toString());
-          if (data.months !== undefined) setMonths(data.months.toString());
-          if (data.contributionP1 !== undefined) setContributionP1(data.contributionP1.toString());
-          if (data.nameP1 !== undefined) setNameP1(data.nameP1);
-          if (data.nameP2 !== undefined) setNameP2(data.nameP2);
+        const res = await fetch("/api/goals");
+        if (!res.ok) return;
+        const data = await res.json();
+        setGoalsList(data);
+        if (data.length > 0) {
+          setCurrentGoalId(data[0]._id);
+        } else {
+          clearGoalData();
         }
       } catch (e) {
+        console.error("Error loading initial goals", e);
+      }
+    };
+    loadInitial();
+  }, []);
+
+  // Polling and data fetching when currentGoalId changes
+  useEffect(() => {
+    const fetchGoalsList = async () => {
+      try {
+        const res = await fetch("/api/goals");
+        if (!res.ok) return;
+        const data = await res.json();
+        setGoalsList(data);
+      } catch (e: any) {
+        if (e.message === "Failed to fetch") return;
+        console.error("Error loading goals list", e);
+      }
+    };
+
+    const fetchGoalData = async () => {
+      if (!currentGoalId) return;
+      
+      try {
+        const res = await fetch(`/api/goal/${currentGoalId}`);
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        populateGoalData(data);
+      } catch (e: any) {
+        // Ignore network errors during polling (e.g. when server restarts)
+        if (e.message === "Failed to fetch") return;
         console.error("Error loading initial data", e);
       }
     };
-    loadInitialData();
-
-    const unsub = onSnapshot(doc(db, "goals", "default_goal"), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        if (data.alreadySaved !== undefined) {
-          setAlreadySaved(data.alreadySaved.toString());
-        }
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  const saveGoalData = async (updates: any) => {
-    try {
-      await setDoc(doc(db, "goals", "default_goal"), updates, { merge: true });
-    } catch (error) {
-      console.error("Error saving goal data:", error);
+    
+    if (currentGoalId) {
+      fetchGoalData();
     }
-  };
+    
+    const interval = setInterval(() => {
+      if (currentGoalId) {
+        fetchGoalData();
+      }
+      fetchGoalsList();
+    }, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [currentGoalId]);
 
-  // Auto-save debounced
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      saveGoalData({
+  const handleSaveGoals = async () => {
+    try {
+      const updates = {
         itemName,
         totalValue: Number(totalValue),
         months: Number(months),
         contributionP1: Number(contributionP1),
         nameP1,
         nameP2,
-        alreadySaved: Number(alreadySaved)
+        savedP1: Number(savedP1),
+        savedP2: Number(savedP2)
+      };
+
+      let res;
+      if (currentGoalId) {
+        res = await fetch(`/api/goal/${currentGoalId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates)
+        });
+      } else {
+        res = await fetch("/api/goal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates)
+        });
+      }
+      
+      if (res.ok) {
+        const savedGoal = await res.json();
+        setCurrentGoalId(savedGoal._id);
+        
+        // Update goals list
+        const listRes = await fetch("/api/goals");
+        if (listRes.ok) {
+          const data = await listRes.json();
+          setGoalsList(data);
+        }
+        alert("Metas salvas com sucesso!");
+      } else {
+        alert("Erro ao salvar metas.");
+      }
+    } catch (error) {
+      console.error("Error saving goal data:", error);
+      alert("Erro ao salvar metas.");
+    }
+  };
+
+  const handleCreateNewGoal = () => {
+    clearGoalData();
+  };
+
+  const handleDeleteGoal = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteGoal = async () => {
+    try {
+      await fetch(`/api/goal/${currentGoalId}`, {
+        method: "DELETE"
       });
-    }, 1000);
-    return () => clearTimeout(timeout);
-  }, [itemName, totalValue, months, contributionP1, nameP1, nameP2, alreadySaved]);
+      
+      // Update goals list
+      const listRes = await fetch("/api/goals");
+      if (listRes.ok) {
+        const data = await listRes.json();
+        setGoalsList(data);
+        if (data.length > 0) {
+          setCurrentGoalId(data[0]._id);
+        } else {
+          clearGoalData(); // Clear fields if all are deleted
+        }
+      }
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      // Fallback if alert is blocked, we just log it
+    }
+  };
 
   // Poll payment status
   useEffect(() => {
@@ -97,6 +213,13 @@ export default function App() {
         const data = await res.json();
         if (data.status === "approved") {
           setPaymentSuccess(true);
+          
+          // Fetch updated data immediately
+          fetch(`/api/goal/${currentGoalId}`).then(r => r.json()).then(goalData => {
+            if (goalData.savedP1 !== undefined) setSavedP1(goalData.savedP1.toString());
+            if (goalData.savedP2 !== undefined) setSavedP2(goalData.savedP2.toString());
+          }).catch(console.error);
+
           setTimeout(() => {
             setShowPixModal(false);
             setPaymentSuccess(false);
@@ -104,9 +227,10 @@ export default function App() {
             setQrCodeBase64("");
             setPixAmount("");
             setPaymentId(null);
-          }, 3000);
+          }, 2000);
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message === "Failed to fetch") return;
         console.error("Error checking payment status", e);
       }
     }, 3000); // Check every 3 seconds
@@ -115,6 +239,10 @@ export default function App() {
   }, [paymentId, showPixModal, paymentSuccess]);
 
   const handleGeneratePix = async () => {
+    if (!currentGoalId) {
+      alert("Por favor, salve a meta antes de gerar um Pix.");
+      return;
+    }
     const amount = Number(pixAmount);
     if (amount <= 0) return;
     
@@ -123,7 +251,7 @@ export default function App() {
       const response = await fetch('/api/create-pix-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, goalId: "default_goal" })
+        body: JSON.stringify({ amount, goalId: currentGoalId, payerId: currentPayer })
       });
       const data = await response.json();
       
@@ -150,14 +278,25 @@ export default function App() {
   };
 
   const handleSimulatePayment = async () => {
+    if (!currentGoalId) {
+      alert("Por favor, salve a meta antes de simular um pagamento.");
+      return;
+    }
     const amount = Number(pixAmount);
     try {
       await fetch('/api/mock-pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, goalId: "default_goal" })
+        body: JSON.stringify({ amount, goalId: currentGoalId, payerId: currentPayer })
       });
       setPaymentSuccess(true);
+      
+      // Fetch updated data immediately
+      fetch(`/api/goal/${currentGoalId}`).then(r => r.json()).then(goalData => {
+        if (goalData.savedP1 !== undefined) setSavedP1(goalData.savedP1.toString());
+        if (goalData.savedP2 !== undefined) setSavedP2(goalData.savedP2.toString());
+      }).catch(console.error);
+
       setTimeout(() => {
         setShowPixModal(false);
         setPaymentSuccess(false);
@@ -165,7 +304,7 @@ export default function App() {
         setQrCodeBase64("");
         setPixAmount("");
         setPaymentId(null);
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error("Error simulating payment:", error);
     }
@@ -182,17 +321,22 @@ export default function App() {
   const results = useMemo(() => {
     const total = Number(totalValue) || 0;
     const time = Number(months) || 1;
-    const saved = Number(alreadySaved) || 0;
+    const sP1 = Number(savedP1) || 0;
+    const sP2 = Number(savedP2) || 0;
+    const saved = sP1 + sP2;
 
     const remaining = Math.max(0, total - saved);
     const progressPercent = total > 0 ? Math.min(100, (saved / total) * 100) : 0;
 
-    const totalP1 = remaining * ((Number(contributionP1) || 0) / 100);
-    const totalP2 = remaining * (contributionP2 / 100);
+    const totalP1 = total * ((Number(contributionP1) || 0) / 100);
+    const totalP2 = total * (contributionP2 / 100);
 
-    const monthlyP1 = time > 0 ? totalP1 / time : 0;
-    const monthlyP2 = time > 0 ? totalP2 / time : 0;
-    const monthlyTotal = time > 0 ? remaining / time : 0;
+    const remainingP1 = Math.max(0, totalP1 - sP1);
+    const remainingP2 = Math.max(0, totalP2 - sP2);
+
+    const monthlyP1 = time > 0 ? remainingP1 / time : 0;
+    const monthlyP2 = time > 0 ? remainingP2 / time : 0;
+    const monthlyTotal = monthlyP1 + monthlyP2;
 
     const weeklyP1 = monthlyP1 / 4.3333;
     const weeklyP2 = monthlyP2 / 4.3333;
@@ -233,7 +377,7 @@ export default function App() {
       dailyTotal,
       chartData
     };
-  }, [totalValue, months, contributionP1, alreadySaved]);
+  }, [totalValue, months, contributionP1, savedP1, savedP2]);
 
   const getMotivationalMessage = (percent: number) => {
     if (percent === 0) return "Toda grande jornada começa com o primeiro passo. Vamos lá!";
@@ -263,7 +407,8 @@ export default function App() {
     setTotalValue("");
     setMonths("12");
     setContributionP1("50");
-    setAlreadySaved("");
+    setSavedP1("");
+    setSavedP2("");
   };
 
   const handleExportText = () => {
@@ -307,6 +452,34 @@ Bora conquistar juntos! ❤️
           <p className="text-slate-500 max-w-lg mx-auto">Calculem juntos como alcançar os sonhos do casal de forma justa e transparente.</p>
         </div>
 
+        {/* Goals List */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+          {goalsList.map(goal => (
+            <Button 
+              key={goal._id} 
+              variant={currentGoalId === goal._id ? "default" : "outline"}
+              className={currentGoalId === goal._id ? "bg-rose-600 hover:bg-rose-700 whitespace-nowrap" : "text-slate-600 whitespace-nowrap"}
+              onClick={() => setCurrentGoalId(goal._id)}
+            >
+              {goal.itemName || "Nova Meta"}
+            </Button>
+          ))}
+          <Button variant="outline" onClick={handleCreateNewGoal} className="border-dashed border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 whitespace-nowrap">
+            + Criar Nova Meta
+          </Button>
+        </div>
+
+        <div className="flex justify-end gap-2 mb-4">
+          <Button onClick={handleDeleteGoal} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Excluir Meta
+          </Button>
+          <Button onClick={handleSaveGoals} className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm">
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Salvar Metas
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           
           {/* Left Column: Inputs */}
@@ -330,7 +503,7 @@ Bora conquistar juntos! ❤️
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="totalValue">Valor Total (R$)</Label>
                     <Input 
@@ -343,21 +516,52 @@ Bora conquistar juntos! ❤️
                       className="focus-visible:ring-rose-500"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="alreadySaved">Já guardado (R$)</Label>
+                    <Label htmlFor="savedP1">Já guardado por {nameP1} (R$)</Label>
                     <div className="flex gap-2">
                       <Input 
-                        id="alreadySaved" 
+                        id="savedP1" 
                         type="text" 
                         inputMode="numeric"
                         placeholder="R$ 0,00" 
-                        value={alreadySaved === "" ? "" : formatCurrency(Number(alreadySaved))}
-                        onChange={(e) => handleCurrencyChange(e, setAlreadySaved)}
+                        value={savedP1 === "" ? "" : formatCurrency(Number(savedP1))}
+                        onChange={(e) => handleCurrencyChange(e, setSavedP1)}
                         className="focus-visible:ring-rose-500 flex-1"
                       />
                       <Button 
                         variant="outline" 
-                        onClick={() => setShowPixModal(true)}
+                        onClick={() => {
+                          setCurrentPayer("P1");
+                          setShowPixModal(true);
+                        }}
+                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 px-3"
+                        title="Depositar via Pix"
+                      >
+                        <QrCode className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="savedP2">Já guardado por {nameP2} (R$)</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        id="savedP2" 
+                        type="text" 
+                        inputMode="numeric"
+                        placeholder="R$ 0,00" 
+                        value={savedP2 === "" ? "" : formatCurrency(Number(savedP2))}
+                        onChange={(e) => handleCurrencyChange(e, setSavedP2)}
+                        className="focus-visible:ring-rose-500 flex-1"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setCurrentPayer("P2");
+                          setShowPixModal(true);
+                        }}
                         className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 px-3"
                         title="Depositar via Pix"
                       >
@@ -617,20 +821,42 @@ Bora conquistar juntos! ❤️
           </div>
         </div>
       </div>
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
+            <CardHeader>
+              <CardTitle className="text-xl text-slate-900">Excluir Meta</CardTitle>
+              <CardDescription>
+                Tem certeza que deseja excluir esta meta? Esta ação não pode ser desfeita.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmDeleteGoal}>
+                Excluir
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
+
       {/* Pix Modal */}
       {showPixModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-emerald-600">
+            <CardHeader className="bg-emerald-50 border-b border-emerald-100 rounded-t-xl">
+              <CardTitle className="flex items-center gap-2 text-emerald-800">
                 <QrCode className="w-6 h-6" />
-                Depositar via Pix
+                Depositar via Pix ({currentPayer === "P1" ? nameP1 : nameP2})
               </CardTitle>
-              <CardDescription>
-                Adicione dinheiro à sua meta compartilhada. O valor será atualizado automaticamente para ambos.
+              <CardDescription className="text-emerald-600">
+                O valor será adicionado à meta de {currentPayer === "P1" ? nameP1 : nameP2}.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-6">
               {paymentSuccess ? (
                 <div className="flex flex-col items-center justify-center py-8 text-emerald-600 space-y-4">
                   <CheckCircle2 className="w-16 h-16 animate-bounce" />
