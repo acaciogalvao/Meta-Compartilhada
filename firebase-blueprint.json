@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "Goal": {
+      "title": "Goal",
+      "description": "A shared savings goal",
+      "type": "object",
+      "properties": {
+        "alreadySaved": {
+          "type": "number",
+          "description": "The amount already saved via Pix"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/goals/{goalId}": {
+      "schema": { "$ref": "#/entities/Goal" },
+      "description": "Stores the shared goals"
+    }
+  }
+}
