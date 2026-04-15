@@ -9,6 +9,7 @@ import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 export default function App() {
+  const [toastMessage, setToastMessage] = useState<{text: string, type: 'success' | 'error'} | null>(null);
   const [goalsList, setGoalsList] = useState<any[]>([]);
   const [currentGoalId, setCurrentGoalId] = useState<string>("");
 
@@ -35,6 +36,11 @@ export default function App() {
   const [qrCodeBase64, setQrCodeBase64] = useState("");
   const [isMockPayment, setIsMockPayment] = useState(true);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'error') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // Fetch data from MongoDB
   const clearGoalData = () => {
@@ -161,13 +167,13 @@ export default function App() {
           const data = await listRes.json();
           setGoalsList(data);
         }
-        alert("Metas salvas com sucesso!");
+        showToast("Metas salvas com sucesso!", "success");
       } else {
-        alert("Erro ao salvar metas.");
+        showToast("Erro ao salvar metas.");
       }
     } catch (error) {
       console.error("Error saving goal data:", error);
-      alert("Erro ao salvar metas.");
+      showToast("Erro ao salvar metas.");
     }
   };
 
@@ -240,7 +246,7 @@ export default function App() {
 
   const handleGeneratePix = async () => {
     if (!currentGoalId) {
-      alert("Por favor, salve a meta antes de gerar um Pix.");
+      showToast("Por favor, salve a meta antes de gerar um Pix.");
       return;
     }
     const amount = Number(pixAmount);
@@ -256,7 +262,7 @@ export default function App() {
       const data = await response.json();
       
       if (!response.ok || data.error) {
-        alert(`Erro ao gerar Pix: ${data.error || 'Erro desconhecido'}`);
+        showToast(`Erro ao gerar Pix: ${data.error || 'Erro desconhecido'}`);
         return;
       }
       
@@ -279,7 +285,7 @@ export default function App() {
 
   const handleSimulatePayment = async () => {
     if (!currentGoalId) {
-      alert("Por favor, salve a meta antes de simular um pagamento.");
+      showToast("Por favor, salve a meta antes de simular um pagamento.");
       return;
     }
     const amount = Number(pixAmount);
@@ -441,6 +447,11 @@ Bora conquistar juntos! ❤️
 
   return (
     <div className="min-h-screen bg-rose-50 text-slate-800 p-4 md:p-8 font-sans selection:bg-rose-200 relative">
+      {toastMessage && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium transition-all ${toastMessage.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+          {toastMessage.text}
+        </div>
+      )}
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Header */}

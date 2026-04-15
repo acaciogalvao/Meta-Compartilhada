@@ -43,7 +43,7 @@ let cachedMpClient: MercadoPagoConfig | null = null;
 let cachedToken: string | null = null;
 
 async function getMpConfig(): Promise<{ client: MercadoPagoConfig | null, isMock: boolean }> {
-  let token = process.env.APP_USR || process.env.MP_ACCESS_TOKEN;
+  let token = process.env.MERCADOPAGO_ACCESS_TOKEN || process.env.APP_USR || process.env.MP_ACCESS_TOKEN;
   
   const isMock = !token || token === "test_dummy";
   
