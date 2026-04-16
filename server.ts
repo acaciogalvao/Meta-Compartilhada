@@ -220,6 +220,41 @@ async function startServer() {
     return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
   }
 
+  function formatPixKey(key: string) {
+    let k = key.trim();
+    // Email
+    if (k.includes('@')) return k;
+    // EVP (Random Key) - keep as is
+    if (k.length === 36 && k.includes('-')) return k;
+    
+    const numeric = k.replace(/\D/g, '');
+    
+    // CNPJ
+    if (numeric.length === 14) return numeric;
+    
+    // Exactly 11 digits could be CPF or Mobile Phone
+    if (numeric.length === 11) {
+      // Check if it's strictly a CPF format (xxx.xxx.xxx-xx or purely 11 digits)
+      const isCpfFormat = /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(k);
+      // Alternatively, if it looks like a phone (e.g. has space, paren, or dash before 4 digits)
+      const isPhoneFormat = /^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/.test(k) || k.includes('+');
+      
+      if (isPhoneFormat && !isCpfFormat) {
+        return `+55${numeric}`;
+      }
+      // Default to plain numeric for CPF or unformatted
+      return numeric;
+    }
+    
+    // Phone with country code but no '+' (e.g. 5511999999999)
+    if (numeric.length === 12 || numeric.length === 13) {
+      return `+${numeric}`;
+    }
+    
+    // Fallback: strip spaces to make sure it doesn't break the BR Code format completely
+    return k.replace(/\s+/g, '');
+  }
+
   app.post("/api/generate-static-pix", async (req, res) => {
     try {
       const { amount, pixKey, merchantName = "Favorecido", merchantCity = "Cidade" } = req.body;
@@ -228,12 +263,14 @@ async function startServer() {
         return res.status(400).json({ error: "Valor ou chave Pix inválidos." });
       }
 
+      const formattedPixKey = formatPixKey(pixKey);
+
       const formatStr = (id: string, value: string) => {
         const len = value.length.toString().padStart(2, '0');
         return `${id}${len}${value}`;
       };
 
-      const merchantAccountInfo = formatStr("00", "br.gov.bcb.pix") + formatStr("01", pixKey);
+      const merchantAccountInfo = formatStr("00", "br.gov.bcb.pix") + formatStr("01", formattedPixKey);
       const cleanName = merchantName.substring(0, 25).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "");
       const cleanCity = merchantCity.substring(0, 15).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "");
       const amountStr = Number(amount).toFixed(2);
