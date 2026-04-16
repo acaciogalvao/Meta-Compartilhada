@@ -31,6 +31,10 @@ const goalSchema = new mongoose.Schema({
   contributionP1: Number,
   nameP1: String,
   nameP2: String,
+  pixKeyP1: String,
+  pixKeyP2: String,
+  frequencyP1: { type: String, default: "monthly" },
+  frequencyP2: { type: String, default: "monthly" },
   savedP1: { type: Number, default: 0 },
   savedP2: { type: Number, default: 0 },
   payments: [paymentSchema]
@@ -117,6 +121,39 @@ async function startServer() {
     }
   });
 
+  app.delete("/api/goal/:goalId/payment/:paymentId", async (req, res) => {
+    try {
+      const { goalId, paymentId } = req.params;
+      const goal = await Goal.findById(goalId);
+      
+      if (!goal) {
+        return res.status(404).json({ error: "Goal not found" });
+      }
+
+      const paymentIndex = goal.payments.findIndex(p => p.paymentId === paymentId);
+      if (paymentIndex === -1) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      const payment = goal.payments[paymentIndex];
+      
+      // Deduct the amount from the respective payer
+      if (payment.payerId === 'P2') {
+        goal.savedP2 = Math.max(0, (goal.savedP2 || 0) - (payment.amount || 0));
+      } else {
+        goal.savedP1 = Math.max(0, (goal.savedP1 || 0) - (payment.amount || 0));
+      }
+
+      // Remove the payment
+      goal.payments.splice(paymentIndex, 1);
+      
+      await goal.save();
+      res.json({ success: true, goal });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Webhook endpoint for Mercado Pago
   app.post("/api/webhook", async (req, res) => {
     console.log("Webhook received:", JSON.stringify(req.body, null, 2), "Query:", req.query);
@@ -166,6 +203,66 @@ async function startServer() {
     }
 
     res.json({ received: true });
+  });
+
+  function getCRC16(payload: string) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < payload.length; i++) {
+      crc ^= payload.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) {
+        if ((crc & 0x8000) > 0) {
+          crc = (crc << 1) ^ 0x1021;
+        } else {
+          crc = crc << 1;
+        }
+      }
+    }
+    return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+  }
+
+  app.post("/api/generate-static-pix", async (req, res) => {
+    try {
+      const { amount, pixKey, merchantName = "Favorecido", merchantCity = "Cidade" } = req.body;
+      
+      if (!amount || amount <= 0 || !pixKey) {
+        return res.status(400).json({ error: "Valor ou chave Pix inválidos." });
+      }
+
+      const formatStr = (id: string, value: string) => {
+        const len = value.length.toString().padStart(2, '0');
+        return `${id}${len}${value}`;
+      };
+
+      const merchantAccountInfo = formatStr("00", "br.gov.bcb.pix") + formatStr("01", pixKey);
+      const cleanName = merchantName.substring(0, 25).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "");
+      const cleanCity = merchantCity.substring(0, 15).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "");
+      const amountStr = Number(amount).toFixed(2);
+      
+      let payload = 
+        formatStr("00", "01") + 
+        formatStr("01", "11") + 
+        formatStr("26", merchantAccountInfo) + 
+        formatStr("52", "0000") + 
+        formatStr("53", "986") + 
+        formatStr("54", amountStr) + 
+        formatStr("58", "BR") + 
+        formatStr("59", cleanName) + 
+        formatStr("60", cleanCity) + 
+        formatStr("62", formatStr("05", "***"));
+
+      payload += "6304";
+      const pixCode = payload + getCRC16(payload);
+
+      const dataUrl = await QRCode.toDataURL(pixCode);
+      const qrCodeBase64 = dataUrl.split(',')[1];
+
+      res.json({
+        pixCode,
+        qrCodeBase64
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/create-pix-payment", async (req, res) => {

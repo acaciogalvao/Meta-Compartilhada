@@ -7,6 +7,14 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, MessageCircle, QrCode, Copy, CheckCircle2, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { PaymentHistory } from './components/PaymentHistory';
+import { PixModal } from './components/PixModal';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { ClearHistoryConfirmModal } from './components/ClearHistoryConfirmModal';
+import { GoalSummary } from './components/GoalSummary';
+import { GoalConfig } from './components/GoalConfig';
+import { GoalDivision } from './components/GoalDivision';
+import confetti from 'canvas-confetti';
 
 export default function App() {
   const [toastMessage, setToastMessage] = useState<{text: string, type: 'success' | 'error'} | null>(null);
@@ -19,13 +27,21 @@ export default function App() {
   const [contributionP1, setContributionP1] = useState("50");
   const [savedP1, setSavedP1] = useState("");
   const [savedP2, setSavedP2] = useState("");
+  const [paymentsHistory, setPaymentsHistory] = useState<any[]>([]);
   
   const [nameP1, setNameP1] = useState("Você");
   const [nameP2, setNameP2] = useState("Seu Amor");
+  const [phoneP1, setPhoneP1] = useState("");
+  const [phoneP2, setPhoneP2] = useState("");
+  const [pixKeyP1, setPixKeyP1] = useState("");
+  const [pixKeyP2, setPixKeyP2] = useState("");
+  const [frequencyP1, setFrequencyP1] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [frequencyP2, setFrequencyP2] = useState<"daily" | "weekly" | "monthly">("monthly");
 
   // Pix Modal State
   const [showPixModal, setShowPixModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [currentPayer, setCurrentPayer] = useState<"P1" | "P2">("P1");
   const [pixAmount, setPixAmount] = useState("");
   const [pixCode, setPixCode] = useState("");
@@ -51,19 +67,93 @@ export default function App() {
     setContributionP1("50");
     setNameP1("Você");
     setNameP2("Seu Amor");
+    setPhoneP1("");
+    setPhoneP2("");
+    setPixKeyP1("");
+    setPixKeyP2("");
+    setFrequencyP1("monthly");
+    setFrequencyP2("monthly");
     setSavedP1("");
     setSavedP2("");
+    setPaymentsHistory([]);
   };
 
-  const populateGoalData = (data: any) => {
-    if (data.itemName !== undefined) setItemName(data.itemName);
-    if (data.totalValue !== undefined) setTotalValue(data.totalValue.toString());
-    if (data.months !== undefined) setMonths(data.months.toString());
-    if (data.contributionP1 !== undefined) setContributionP1(data.contributionP1.toString());
-    if (data.nameP1 !== undefined) setNameP1(data.nameP1);
-    if (data.nameP2 !== undefined) setNameP2(data.nameP2);
+  const populateGoalData = (data: any, isInitialLoad: boolean = false) => {
+    if (isInitialLoad) {
+      if (data.itemName !== undefined) setItemName(data.itemName);
+      if (data.totalValue !== undefined) setTotalValue(data.totalValue.toString());
+      if (data.months !== undefined) setMonths(data.months.toString());
+      if (data.contributionP1 !== undefined) setContributionP1(data.contributionP1.toString());
+      if (data.nameP1 !== undefined) setNameP1(data.nameP1);
+      if (data.nameP2 !== undefined) setNameP2(data.nameP2);
+      if (data.phoneP1 !== undefined) setPhoneP1(data.phoneP1);
+      if (data.phoneP2 !== undefined) setPhoneP2(data.phoneP2);
+      if (data.pixKeyP1 !== undefined) setPixKeyP1(data.pixKeyP1);
+      if (data.pixKeyP2 !== undefined) setPixKeyP2(data.pixKeyP2);
+      if (data.frequencyP1 !== undefined) setFrequencyP1(data.frequencyP1);
+      if (data.frequencyP2 !== undefined) setFrequencyP2(data.frequencyP2);
+    }
+    
+    // Check if goal was just completed
+    const oldSaved = Number(savedP1) + Number(savedP2);
+    const newSaved = (data.savedP1 || 0) + (data.savedP2 || 0);
+    const total = data.totalValue || 0;
+    
     if (data.savedP1 !== undefined) setSavedP1(data.savedP1.toString());
     if (data.savedP2 !== undefined) setSavedP2(data.savedP2.toString());
+    if (data.payments !== undefined) setPaymentsHistory(data.payments);
+
+    if (newSaved >= total && oldSaved < total && total > 0) {
+      triggerConfetti();
+    }
+  };
+
+  const triggerConfetti = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    // Create a custom canvas to avoid conflicts with global canvas variables
+    const canvas = document.createElement('canvas');
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '9999';
+    document.body.appendChild(canvas);
+
+    const myConfetti = confetti.create(canvas, {
+      resize: true,
+      useWorker: true
+    });
+
+    const interval: any = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        }, 3000);
+        return;
+      }
+
+      const particleCount = Math.floor(50 * (timeLeft / duration));
+      myConfetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+      });
+      myConfetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+      });
+    }, 250);
   };
 
   // Initial load
@@ -72,6 +162,12 @@ export default function App() {
       try {
         const res = await fetch("/api/goals");
         if (!res.ok) return;
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+           return;
+        }
+        
         const data = await res.json();
         setGoalsList(data);
         if (data.length > 0) {
@@ -92,6 +188,12 @@ export default function App() {
       try {
         const res = await fetch("/api/goals");
         if (!res.ok) return;
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          return;
+        }
+        
         const data = await res.json();
         setGoalsList(data);
       } catch (e: any) {
@@ -100,15 +202,20 @@ export default function App() {
       }
     };
 
-    const fetchGoalData = async () => {
+    const fetchGoalData = async (isInitialLoad: boolean = false) => {
       if (!currentGoalId) return;
       
       try {
         const res = await fetch(`/api/goal/${currentGoalId}`);
         if (!res.ok) return;
         
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          return;
+        }
+        
         const data = await res.json();
-        populateGoalData(data);
+        populateGoalData(data, isInitialLoad);
       } catch (e: any) {
         // Ignore network errors during polling (e.g. when server restarts)
         if (e.message === "Failed to fetch") return;
@@ -117,12 +224,12 @@ export default function App() {
     };
     
     if (currentGoalId) {
-      fetchGoalData();
+      fetchGoalData(true);
     }
     
     const interval = setInterval(() => {
       if (currentGoalId) {
-        fetchGoalData();
+        fetchGoalData(false);
       }
       fetchGoalsList();
     }, 5000); // Poll every 5 seconds
@@ -138,6 +245,12 @@ export default function App() {
         contributionP1: Number(contributionP1),
         nameP1,
         nameP2,
+        phoneP1,
+        phoneP2,
+        pixKeyP1,
+        pixKeyP2,
+        frequencyP1,
+        frequencyP2,
         savedP1: Number(savedP1),
         savedP2: Number(savedP2)
       };
@@ -181,6 +294,36 @@ export default function App() {
     clearGoalData();
   };
 
+  const handleClearHistoryClick = () => {
+    setShowClearHistoryConfirm(true);
+  };
+
+  const confirmClearHistory = async () => {
+    try {
+      await Promise.all(paymentsHistory.map(p => 
+        fetch(`/api/goal/${currentGoalId}/payment/${p.paymentId}`, { method: "DELETE" })
+      ));
+      showToast("Histórico excluído com sucesso!", "success");
+      
+      // Reset saved amounts locally
+      setSavedP1("0");
+      setSavedP2("0");
+      setPaymentsHistory([]);
+      
+      // Re-fetch to ensure sync
+      const res = await fetch(`/api/goal/${currentGoalId}`);
+      if (res.ok) {
+        const data = await res.json();
+        populateGoalData(data, false);
+      }
+    } catch (error) {
+      console.error("Error clearing history:", error);
+      showToast("Erro ao excluir histórico.", "error");
+    } finally {
+      setShowClearHistoryConfirm(false);
+    }
+  };
+
   const handleDeleteGoal = () => {
     setShowDeleteConfirm(true);
   };
@@ -221,9 +364,17 @@ export default function App() {
           setPaymentSuccess(true);
           
           // Fetch updated data immediately
-          fetch(`/api/goal/${currentGoalId}`).then(r => r.json()).then(goalData => {
+          fetch(`/api/goal/${currentGoalId}`)
+            .then(r => {
+              if (!r.ok || !r.headers.get("content-type")?.includes("application/json")) {
+                throw new Error("Invalid response");
+              }
+              return r.json();
+            })
+            .then(goalData => {
             if (goalData.savedP1 !== undefined) setSavedP1(goalData.savedP1.toString());
             if (goalData.savedP2 !== undefined) setSavedP2(goalData.savedP2.toString());
+            if (goalData.payments !== undefined) setPaymentsHistory(goalData.payments);
           }).catch(console.error);
 
           setTimeout(() => {
@@ -254,11 +405,35 @@ export default function App() {
     
     setIsGeneratingPix(true);
     try {
-      const response = await fetch('/api/create-pix-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, goalId: currentGoalId, payerId: currentPayer })
-      });
+      const activePixKey = currentPayer === "P1" ? pixKeyP1 : pixKeyP2;
+      
+      let response;
+      if (activePixKey) {
+        // Option 1: Direct personal Pix key provided
+        response = await fetch('/api/generate-static-pix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            amount, 
+            pixKey: activePixKey,
+            merchantName: currentPayer === "P1" ? nameP1 : nameP2
+          })
+        });
+        
+        // In personal pix mode, we don't have a MercadoPago ID to poll
+        setPaymentId(null);
+        // We set it as mock payment to show the 'Mock Pay' / 'Já Paguei' button
+        setIsMockPayment(true);
+        
+      } else {
+        // Option 2: Mercado Pago backend
+        response = await fetch('/api/create-pix-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, goalId: currentGoalId, payerId: currentPayer })
+        });
+      }
+
       const data = await response.json();
       
       if (!response.ok || data.error) {
@@ -275,7 +450,9 @@ export default function App() {
       if (data.paymentId) {
         setPaymentId(data.paymentId);
       }
-      setIsMockPayment(data.isMock);
+      if (data.isMock !== undefined && !activePixKey) {
+        setIsMockPayment(data.isMock);
+      }
     } catch (error) {
       console.error("Error generating pix:", error);
     } finally {
@@ -298,9 +475,17 @@ export default function App() {
       setPaymentSuccess(true);
       
       // Fetch updated data immediately
-      fetch(`/api/goal/${currentGoalId}`).then(r => r.json()).then(goalData => {
+      fetch(`/api/goal/${currentGoalId}`)
+        .then(r => {
+          if (!r.ok || !r.headers.get("content-type")?.includes("application/json")) {
+            throw new Error("Invalid response");
+          }
+          return r.json();
+        })
+        .then(goalData => {
         if (goalData.savedP1 !== undefined) setSavedP1(goalData.savedP1.toString());
         if (goalData.savedP2 !== undefined) setSavedP2(goalData.savedP2.toString());
+        if (goalData.payments !== undefined) setPaymentsHistory(goalData.payments);
       }).catch(console.error);
 
       setTimeout(() => {
@@ -340,6 +525,16 @@ export default function App() {
     const remainingP1 = Math.max(0, totalP1 - sP1);
     const remainingP2 = Math.max(0, totalP2 - sP2);
 
+    const getInstallment = (remainingAmount: number, monthsTime: number, freq: string) => {
+      if (monthsTime <= 0) return 0;
+      if (freq === 'daily') return remainingAmount / (monthsTime * 30.4166);
+      if (freq === 'weekly') return remainingAmount / (monthsTime * 4.3333);
+      return remainingAmount / monthsTime; // monthly
+    };
+
+    const installmentP1 = getInstallment(remainingP1, time, frequencyP1);
+    const installmentP2 = getInstallment(remainingP2, time, frequencyP2);
+
     const monthlyP1 = time > 0 ? remainingP1 / time : 0;
     const monthlyP2 = time > 0 ? remainingP2 / time : 0;
     const monthlyTotal = monthlyP1 + monthlyP2;
@@ -372,6 +567,10 @@ export default function App() {
       progressPercent,
       totalP1,
       totalP2,
+      remainingP1,
+      remainingP2,
+      installmentP1,
+      installmentP2,
       monthlyP1,
       monthlyP2,
       monthlyTotal,
@@ -383,7 +582,7 @@ export default function App() {
       dailyTotal,
       chartData
     };
-  }, [totalValue, months, contributionP1, savedP1, savedP2]);
+  }, [totalValue, months, contributionP1, savedP1, savedP2, frequencyP1, frequencyP2, contributionP2]);
 
   const getMotivationalMessage = (percent: number) => {
     if (percent === 0) return "Toda grande jornada começa com o primeiro passo. Vamos lá!";
@@ -391,7 +590,7 @@ export default function App() {
     if (percent < 50) return "Quase na metade! Vocês estão indo super bem.";
     if (percent < 75) return "Passamos da metade! O sonho está cada vez mais perto.";
     if (percent < 100) return "Falta muito pouco! Reta final para a conquista.";
-    return "Parabéns! Vocês alcançaram a meta juntos! 🎉";
+    return "🎉 Parabéns! Vocês alcançaram a meta juntos! Que venham os próximos sonhos!";
   };
 
   const formatCurrency = (value: number) => {
@@ -406,6 +605,12 @@ export default function App() {
     }
     const numericValue = Number(digits) / 100;
     setter(numericValue.toString());
+  };
+
+  const getFreqLabel = (freq: string) => {
+    if (freq === 'daily') return 'Por dia';
+    if (freq === 'weekly') return 'Por semana';
+    return 'Por mês';
   };
 
   const handleReset = () => {
@@ -425,18 +630,18 @@ export default function App() {
 ✅ Já guardamos: ${formatCurrency(results.saved)} (${results.progressPercent.toFixed(1)}%)
 📉 Falta: ${formatCurrency(results.remaining)}
 
-Mensalidade para alcançar a meta:
+📊 Resumo Individual:
 👤 ${nameP1} (${contributionP1}%):
-   - ${formatCurrency(results.dailyP1)}/dia
-   - ${formatCurrency(results.weeklyP1)}/semana
-   - ${formatCurrency(results.monthlyP1)}/mês
+   - Já pagou: ${formatCurrency(Number(savedP1) || 0)}
+   - Falta pagar: ${formatCurrency(results.remainingP1)}
+   - Parcela: ${formatCurrency(results.installmentP1)} ${getFreqLabel(frequencyP1).toLowerCase()}
 
 👤 ${nameP2} (${contributionP2}%):
-   - ${formatCurrency(results.dailyP2)}/dia
-   - ${formatCurrency(results.weeklyP2)}/semana
-   - ${formatCurrency(results.monthlyP2)}/mês
+   - Já pagou: ${formatCurrency(Number(savedP2) || 0)}
+   - Falta pagar: ${formatCurrency(results.remainingP2)}
+   - Parcela: ${formatCurrency(results.installmentP2)} ${getFreqLabel(frequencyP2).toLowerCase()}
 
-💵 Total por mês: ${formatCurrency(results.monthlyTotal)}
+💵 Total das parcelas por mês: ${formatCurrency(results.monthlyTotal)}
 
 Bora conquistar juntos! ❤️
     `.trim();
@@ -495,206 +700,53 @@ Bora conquistar juntos! ❤️
           
           {/* Left Column: Inputs */}
           <div className="md:col-span-5 space-y-6">
-            <Card className="border-rose-100 shadow-sm">
-              <CardHeader className="bg-white/50 border-b border-rose-50/50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Target className="w-5 h-5 text-rose-500" />
-                  Detalhes do Sonho
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="itemName">O que vocês querem comprar?</Label>
-                  <Input 
-                    id="itemName" 
-                    placeholder="Ex: Viagem para Paris, Sofá novo..." 
-                    value={itemName ?? ""}
-                    onChange={(e) => setItemName(e.target.value)}
-                    className="focus-visible:ring-rose-500"
-                  />
-                </div>
+            <GoalConfig 
+              itemName={itemName}
+              setItemName={setItemName}
+              totalValue={totalValue}
+              setTotalValue={setTotalValue}
+              savedP1={savedP1}
+              setSavedP1={setSavedP1}
+              savedP2={savedP2}
+              setSavedP2={setSavedP2}
+              months={months}
+              setMonths={setMonths}
+              nameP1={nameP1}
+              nameP2={nameP2}
+              pixKeyP1={pixKeyP1}
+              setPixKeyP1={setPixKeyP1}
+              pixKeyP2={pixKeyP2}
+              setPixKeyP2={setPixKeyP2}
+              formatCurrency={formatCurrency}
+              handleCurrencyChange={handleCurrencyChange}
+              setCurrentPayer={setCurrentPayer}
+              setPixAmount={setPixAmount}
+              setShowPixModal={setShowPixModal}
+              installmentP1={results.installmentP1}
+              installmentP2={results.installmentP2}
+            />
 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="totalValue">Valor Total (R$)</Label>
-                    <Input 
-                      id="totalValue" 
-                      type="text" 
-                      inputMode="numeric"
-                      placeholder="R$ 0,00" 
-                      value={totalValue === "" ? "" : formatCurrency(Number(totalValue))}
-                      onChange={(e) => handleCurrencyChange(e, setTotalValue)}
-                      className="focus-visible:ring-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="savedP1">Já guardado por {nameP1} (R$)</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        id="savedP1" 
-                        type="text" 
-                        inputMode="numeric"
-                        placeholder="R$ 0,00" 
-                        value={savedP1 === "" ? "" : formatCurrency(Number(savedP1))}
-                        onChange={(e) => handleCurrencyChange(e, setSavedP1)}
-                        className="focus-visible:ring-rose-500 flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setCurrentPayer("P1");
-                          setShowPixModal(true);
-                        }}
-                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 px-3"
-                        title="Depositar via Pix"
-                      >
-                        <QrCode className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="savedP2">Já guardado por {nameP2} (R$)</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        id="savedP2" 
-                        type="text" 
-                        inputMode="numeric"
-                        placeholder="R$ 0,00" 
-                        value={savedP2 === "" ? "" : formatCurrency(Number(savedP2))}
-                        onChange={(e) => handleCurrencyChange(e, setSavedP2)}
-                        className="focus-visible:ring-rose-500 flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setCurrentPayer("P2");
-                          setShowPixModal(true);
-                        }}
-                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 px-3"
-                        title="Depositar via Pix"
-                      >
-                        <QrCode className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="months">Prazo (meses): {months}</Label>
-                  <div className="flex items-center gap-4">
-                    <Slider 
-                      id="months"
-                      value={[Number(months) || 1]} 
-                      min={1} 
-                      max={60} 
-                      step={1}
-                      onValueChange={(vals) => {
-                        const val = Array.isArray(vals) ? vals[0] : vals;
-                        if (val !== undefined) {
-                          setMonths(val.toString());
-                        }
-                      }}
-                      className="[&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-500"
-                    />
-                    <Input 
-                      type="number" 
-                      min="1" max="60"
-                      value={months ?? ""}
-                      onChange={(e) => setMonths(e.target.value)}
-                      className="w-20 focus-visible:ring-rose-500"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <GoalDivision 
+              nameP1={nameP1}
+              setNameP1={setNameP1}
+              nameP2={nameP2}
+              setNameP2={setNameP2}
+              contributionP1={contributionP1}
+              setContributionP1={setContributionP1}
+              contributionP2={contributionP2}
+              frequencyP1={frequencyP1}
+              setFrequencyP1={setFrequencyP1}
+              frequencyP2={frequencyP2}
+              setFrequencyP2={setFrequencyP2}
+              phoneP1={phoneP1}
+              setPhoneP1={setPhoneP1}
+              phoneP2={phoneP2}
+              setPhoneP2={setPhoneP2}
+              hasPayments={paymentsHistory.length > 0}
+            />
 
             <Card className="border-rose-100 shadow-sm">
-              <CardHeader className="bg-white/50 border-b border-rose-50/50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Calculator className="w-5 h-5 text-rose-500" />
-                  Divisão da Meta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome da Pessoa 1</Label>
-                    <Input 
-                      value={nameP1 ?? ""}
-                      onChange={(e) => setNameP1(e.target.value)}
-                      className="focus-visible:ring-rose-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nome da Pessoa 2</Label>
-                    <Input 
-                      value={nameP2 ?? ""}
-                      onChange={(e) => setNameP2(e.target.value)}
-                      className="focus-visible:ring-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label>Contribuição {nameP1} (%)</Label>
-                    <Input 
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={contributionP1 ?? ""}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        if (val !== "" && Number(val) > 100) val = "100";
-                        if (val !== "" && Number(val) < 0) val = "0";
-                        setContributionP1(val);
-                      }}
-                      className="focus-visible:ring-rose-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Contribuição {nameP2} (%)</Label>
-                    <Input 
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={contributionP1 === "" ? "" : contributionP2.toString()}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        if (val !== "" && Number(val) > 100) val = "100";
-                        if (val !== "" && Number(val) < 0) val = "0";
-                        if (val === "") {
-                          setContributionP1("");
-                        } else {
-                          setContributionP1((100 - Number(val)).toString());
-                        }
-                      }}
-                      className="focus-visible:ring-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 mt-4">
-                  <Slider 
-                    value={[Number(contributionP1) || 0]} 
-                    min={0} 
-                    max={100} 
-                    step={1}
-                    onValueChange={(vals) => {
-                      const val = Array.isArray(vals) ? vals[0] : vals;
-                      if (val !== undefined) {
-                        setContributionP1(val.toString());
-                      }
-                    }}
-                    className="[&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-500"
-                  />
-                  <p className="text-xs text-slate-500 text-center">Deslize para ajustar a proporção de cada um</p>
-                </div>
-              </CardContent>
-              <CardFooter className="bg-slate-50 border-t flex justify-between">
+              <CardFooter className="bg-slate-50 border-t flex justify-between pt-6">
                 <Button variant="outline" onClick={handleReset} className="w-full text-slate-600">
                   <RefreshCcw className="w-4 h-4 mr-2" />
                   Limpar Dados
@@ -727,224 +779,70 @@ Bora conquistar juntos! ❤️
               </CardContent>
             </Card>
 
-            {/* Monthly Plan */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Card className="border-rose-100 shadow-sm">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col items-center text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-xl mb-2">
-                      {nameP1.charAt(0).toUpperCase()}
-                    </div>
-                    <h4 className="font-semibold text-slate-700">{nameP1} <span className="text-slate-400 font-normal text-sm">({contributionP1}%)</span></h4>
-                    
-                    <div className="space-y-2 w-full mt-2">
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded">
-                        <span className="text-sm text-slate-500">Por dia</span>
-                        <span className="font-bold text-slate-700">{formatCurrency(results.dailyP1)}</span>
-                      </div>
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded">
-                        <span className="text-sm text-slate-500">Por semana</span>
-                        <span className="font-bold text-slate-700">{formatCurrency(results.weeklyP1)}</span>
-                      </div>
-                      <div className="flex justify-between items-center bg-rose-50 p-2 rounded border border-rose-100">
-                        <span className="text-sm font-medium text-rose-700">Por mês</span>
-                        <span className="font-bold text-rose-700 text-lg">{formatCurrency(results.monthlyP1)}</span>
-                      </div>
-                    </div>
+            <GoalSummary 
+              results={results}
+              nameP1={nameP1}
+              nameP2={nameP2}
+              contributionP1={contributionP1}
+              contributionP2={contributionP2}
+              frequencyP1={frequencyP1}
+              frequencyP2={frequencyP2}
+              phoneP1={phoneP1}
+              phoneP2={phoneP2}
+              itemName={itemName}
+              formatCurrency={formatCurrency}
+              getFreqLabel={getFreqLabel}
+              handleExportText={handleExportText}
+              showToast={showToast}
+            />
 
-                    <div className="w-full h-px bg-slate-100 my-2"></div>
-                    <p className="text-xs text-slate-400">Total a juntar: {formatCurrency(results.totalP1)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-rose-100 shadow-sm">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col items-center text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xl mb-2">
-                      {nameP2.charAt(0).toUpperCase()}
-                    </div>
-                    <h4 className="font-semibold text-slate-700">{nameP2} <span className="text-slate-400 font-normal text-sm">({contributionP2}%)</span></h4>
-                    
-                    <div className="space-y-2 w-full mt-2">
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded">
-                        <span className="text-sm text-slate-500">Por dia</span>
-                        <span className="font-bold text-slate-700">{formatCurrency(results.dailyP2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded">
-                        <span className="text-sm text-slate-500">Por semana</span>
-                        <span className="font-bold text-slate-700">{formatCurrency(results.weeklyP2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center bg-slate-100 p-2 rounded border border-slate-200">
-                        <span className="text-sm font-medium text-slate-700">Por mês</span>
-                        <span className="font-bold text-slate-700 text-lg">{formatCurrency(results.monthlyP2)}</span>
-                      </div>
-                    </div>
-
-                    <div className="w-full h-px bg-slate-100 my-2"></div>
-                    <p className="text-xs text-slate-400">Total a juntar: {formatCurrency(results.totalP2)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Chart */}
-            <Card className="border-rose-100 shadow-sm">
-              <CardHeader className="bg-white/50 border-b border-rose-50/50 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <TrendingUp className="w-5 h-5 text-rose-500" />
-                  Projeção da Meta
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={handleExportText} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Enviar p/ WhatsApp
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={results.chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="month" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 12, fill: '#64748b' }} 
-                        dy={10}
-                      />
-                      <YAxis 
-                        hide 
-                        domain={[0, 'dataMax + 1000']} 
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => formatCurrency(value)}
-                        cursor={{ fill: '#f1f5f9' }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <ReferenceLine y={results.total} stroke="#10b981" strokeDasharray="3 3" label={{ position: 'top', value: 'Meta', fill: '#10b981', fontSize: 12 }} />
-                      <Bar dataKey="acumulado" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            <PaymentHistory 
+              paymentsHistory={paymentsHistory}
+              nameP1={nameP1}
+              nameP2={nameP2}
+              formatCurrency={formatCurrency}
+              progressPercent={results.progressPercent}
+              handleClearHistory={handleClearHistoryClick}
+            />
 
           </div>
         </div>
       </div>
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
-            <CardHeader>
-              <CardTitle className="text-xl text-slate-900">Excluir Meta</CardTitle>
-              <CardDescription>
-                Tem certeza que deseja excluir esta meta? Esta ação não pode ser desfeita.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
-                Cancelar
-              </Button>
-              <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmDeleteGoal}>
-                Excluir
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+      
+      <DeleteConfirmModal 
+        showDeleteConfirm={showDeleteConfirm}
+        setShowDeleteConfirm={setShowDeleteConfirm}
+        confirmDeleteGoal={confirmDeleteGoal}
+      />
 
-      {/* Pix Modal */}
-      {showPixModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-            <CardHeader className="bg-emerald-50 border-b border-emerald-100 rounded-t-xl">
-              <CardTitle className="flex items-center gap-2 text-emerald-800">
-                <QrCode className="w-6 h-6" />
-                Depositar via Pix ({currentPayer === "P1" ? nameP1 : nameP2})
-              </CardTitle>
-              <CardDescription className="text-emerald-600">
-                O valor será adicionado à meta de {currentPayer === "P1" ? nameP1 : nameP2}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              {paymentSuccess ? (
-                <div className="flex flex-col items-center justify-center py-8 text-emerald-600 space-y-4">
-                  <CheckCircle2 className="w-16 h-16 animate-bounce" />
-                  <p className="text-xl font-bold">Pagamento Confirmado!</p>
-                  <p className="text-sm text-slate-500 text-center">O valor já foi adicionado à sua meta.</p>
-                </div>
-              ) : !pixCode ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Valor do Depósito</Label>
-                    <Input 
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="R$ 0,00"
-                      value={pixAmount === "" ? "" : formatCurrency(Number(pixAmount))}
-                      onChange={(e) => handleCurrencyChange(e, setPixAmount)}
-                      className="text-lg"
-                    />
-                  </div>
-                  <Button 
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={handleGeneratePix}
-                    disabled={isGeneratingPix || !pixAmount || Number(pixAmount) === 0}
-                  >
-                    {isGeneratingPix ? "Gerando..." : "Gerar Código Pix"}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-6 flex flex-col items-center">
-                  <div className="bg-white p-4 rounded-xl border-2 border-slate-100 shadow-sm">
-                    {qrCodeBase64 ? (
-                      <img src={`data:image/png;base64,${qrCodeBase64}`} alt="QR Code Pix" className="w-48 h-48" />
-                    ) : (
-                      <QrCode className="w-48 h-48 text-slate-800" />
-                    )}
-                  </div>
-                  
-                  <div className="w-full space-y-2">
-                    <Label>Pix Copia e Cola</Label>
-                    <div className="flex gap-2">
-                      <Input value={pixCode} readOnly className="bg-slate-50 font-mono text-xs" />
-                      <Button variant="outline" onClick={copyPixCode} className="shrink-0">
-                        {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  </div>
+      <ClearHistoryConfirmModal 
+        showClearHistoryConfirm={showClearHistoryConfirm}
+        setShowClearHistoryConfirm={setShowClearHistoryConfirm}
+        confirmClearHistory={confirmClearHistory}
+      />
 
-                  {isMockPayment && (
-                    <div className="w-full p-4 bg-amber-50 rounded-lg border border-amber-200">
-                      <p className="text-sm text-amber-800 text-center mb-3">
-                        <strong>Modo Protótipo:</strong> Como este é um ambiente de teste, clique abaixo para simular que você pagou no seu banco.
-                      </p>
-                      <Button 
-                        className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                        onClick={handleSimulatePayment}
-                      >
-                        Simular Pagamento Realizado
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-            {!paymentSuccess && (
-              <CardFooter className="flex justify-end">
-                <Button variant="ghost" onClick={() => {
-                  setShowPixModal(false);
-                  setPixCode("");
-                  setPixAmount("");
-                }}>
-                  Cancelar
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
-        </div>
-      )}
+      <PixModal 
+        showPixModal={showPixModal}
+        setShowPixModal={setShowPixModal}
+        currentPayer={currentPayer}
+        nameP1={nameP1}
+        nameP2={nameP2}
+        pixAmount={pixAmount}
+        setPixAmount={setPixAmount}
+        pixCode={pixCode}
+        setPixCode={setPixCode}
+        qrCodeBase64={qrCodeBase64}
+        isGeneratingPix={isGeneratingPix}
+        paymentSuccess={paymentSuccess}
+        copied={copied}
+        copyPixCode={copyPixCode}
+        handleGeneratePix={handleGeneratePix}
+        handleSimulatePayment={handleSimulatePayment}
+        isMockPayment={isMockPayment}
+        setIsMockPayment={setIsMockPayment}
+        formatCurrency={formatCurrency}
+        handleCurrencyChange={handleCurrencyChange}
+      />
     </div>
   );
 }
