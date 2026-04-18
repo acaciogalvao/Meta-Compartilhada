@@ -37,6 +37,9 @@ export default function App() {
   const [pixKeyP2, setPixKeyP2] = useState("");
   const [frequencyP1, setFrequencyP1] = useState<"daily" | "weekly" | "monthly">("monthly");
   const [frequencyP2, setFrequencyP2] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [dueDayP1, setDueDayP1] = useState(5);
+  const [dueDayP2, setDueDayP2] = useState(5);
+  const [startDate, setStartDate] = useState(new Date().toISOString());
 
   // Pix Modal State
   const [showPixModal, setShowPixModal] = useState(false);
@@ -73,6 +76,8 @@ export default function App() {
     setPixKeyP2("");
     setFrequencyP1("monthly");
     setFrequencyP2("monthly");
+    setDueDayP1(5);
+    setDueDayP2(5);
     setSavedP1("");
     setSavedP2("");
     setPaymentsHistory([]);
@@ -92,6 +97,9 @@ export default function App() {
       if (data.pixKeyP2 !== undefined) setPixKeyP2(data.pixKeyP2);
       if (data.frequencyP1 !== undefined) setFrequencyP1(data.frequencyP1);
       if (data.frequencyP2 !== undefined) setFrequencyP2(data.frequencyP2);
+      if (data.dueDayP1 !== undefined) setDueDayP1(data.dueDayP1);
+      if (data.dueDayP2 !== undefined) setDueDayP2(data.dueDayP2);
+      if (data.startDate !== undefined) setStartDate(data.startDate);
     }
     
     // Check if goal was just completed
@@ -251,6 +259,8 @@ export default function App() {
         pixKeyP2,
         frequencyP1,
         frequencyP2,
+        dueDayP1,
+        dueDayP2,
         savedP1: Number(savedP1),
         savedP2: Number(savedP2)
       };
@@ -559,6 +569,39 @@ export default function App() {
       currentSaved += monthlyTotal;
     }
 
+    // Determine if late based on payments
+    const checkIsLate = (payer: string, freq: string, dueDay: number) => {
+      if (saved >= total) return false;
+      const now = new Date();
+      const payerPayments = paymentsHistory.filter(p => p.payerId === payer).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      if (payerPayments.length === 0) {
+        // If no payments ever made, and due day has passed since start
+        const start = new Date(startDate);
+        if (freq === 'monthly' && (now.getMonth() > start.getMonth() || now.getFullYear() > start.getFullYear() || now.getDate() >= dueDay)) return true;
+        if (freq === 'weekly' && (now.getTime() - start.getTime() > 7*24*60*60*1000 || now.getDay() >= dueDay)) return true;
+        if (freq === 'daily' && now.getDate() !== start.getDate()) return true;
+        return false;
+      }
+      
+      const lastPayment = new Date(payerPayments[0].date);
+      
+      if (freq === 'monthly') {
+        if (now.getMonth() === lastPayment.getMonth() && now.getFullYear() === lastPayment.getFullYear()) return false;
+        if (now.getDate() >= dueDay) return true;
+      } else if (freq === 'weekly') {
+        const daysSinceLast = Math.floor((now.getTime() - lastPayment.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceLast >= 7 || (daysSinceLast > 0 && now.getDay() >= dueDay && lastPayment.getDay() < dueDay)) return true;
+      } else if (freq === 'daily') {
+        const daysSinceLast = Math.floor((now.getTime() - lastPayment.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceLast >= 1) return true;
+      }
+      return false;
+    };
+
+    const isLateP1 = checkIsLate('P1', frequencyP1, dueDayP1);
+    const isLateP2 = checkIsLate('P2', frequencyP2, dueDayP2);
+
     return {
       total,
       time,
@@ -580,9 +623,11 @@ export default function App() {
       dailyP1,
       dailyP2,
       dailyTotal,
-      chartData
+      chartData,
+      isLateP1,
+      isLateP2
     };
-  }, [totalValue, months, contributionP1, savedP1, savedP2, frequencyP1, frequencyP2, contributionP2]);
+  }, [totalValue, months, contributionP1, savedP1, savedP2, frequencyP1, frequencyP2, contributionP2, paymentsHistory, dueDayP1, dueDayP2, startDate]);
 
   const getMotivationalMessage = (percent: number) => {
     if (percent === 0) return "Toda grande jornada começa com o primeiro passo. Vamos lá!";
@@ -738,6 +783,10 @@ Bora conquistar juntos! ❤️
               setFrequencyP1={setFrequencyP1}
               frequencyP2={frequencyP2}
               setFrequencyP2={setFrequencyP2}
+              dueDayP1={dueDayP1}
+              setDueDayP1={setDueDayP1}
+              dueDayP2={dueDayP2}
+              setDueDayP2={setDueDayP2}
               phoneP1={phoneP1}
               setPhoneP1={setPhoneP1}
               phoneP2={phoneP2}

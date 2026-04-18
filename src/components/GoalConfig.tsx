@@ -176,7 +176,7 @@ export function GoalConfig({
           <div className="flex items-center gap-4">
             <Slider 
               id="months"
-              value={[Number(months) || 1]} 
+              value={Number(months) || 1} 
               min={1} 
               max={60} 
               step={1}

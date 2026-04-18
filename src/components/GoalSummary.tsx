@@ -143,14 +143,15 @@ export function GoalSummary({
                   <span className="text-sm font-medium text-rose-700">{getFreqLabel(frequencyP1)}</span>
                   <span className="font-bold text-rose-700 text-lg">{formatCurrency(results.installmentP1)}</span>
                 </div>
+                {results.isLateP1 && <p className="text-xs text-red-500 font-bold animate-pulse">Este pagamento está em atraso!</p>}
                 <Button 
-                  variant="outline" 
+                  variant={results.isLateP1 ? "default" : "outline"}
                   size="sm" 
-                  className="w-full text-rose-600 border-rose-200 hover:bg-rose-50"
+                  className={`w-full ${results.isLateP1 ? "bg-red-500 hover:bg-red-600 text-white" : "text-rose-600 border-rose-200 hover:bg-rose-50"}`}
                   onClick={() => handleCharge(nameP1, phoneP1, results.installmentP1)}
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
-                  Cobrar Atraso
+                  {results.isLateP1 ? "Cobrar Atraso" : "Lembrar Pagamento"}
                 </Button>
               </div>
 
@@ -173,14 +174,15 @@ export function GoalSummary({
                   <span className="text-sm font-medium text-slate-700">{getFreqLabel(frequencyP2)}</span>
                   <span className="font-bold text-slate-700 text-lg">{formatCurrency(results.installmentP2)}</span>
                 </div>
+                {results.isLateP2 && <p className="text-xs text-red-500 font-bold animate-pulse">Este pagamento está em atraso!</p>}
                 <Button 
-                  variant="outline" 
+                  variant={results.isLateP2 ? "default" : "outline"}
                   size="sm" 
-                  className="w-full text-slate-600 border-slate-200 hover:bg-slate-50"
+                  className={`w-full ${results.isLateP2 ? "bg-red-500 hover:bg-red-600 text-white" : "text-slate-600 border-slate-200 hover:bg-slate-50"}`}
                   onClick={() => handleCharge(nameP2, phoneP2, results.installmentP2)}
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
-                  Cobrar Atraso
+                  {results.isLateP2 ? "Cobrar Atraso" : "Lembrar Pagamento"}
                 </Button>
               </div>
 
