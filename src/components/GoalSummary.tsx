@@ -2,12 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
+import { TrendingUp, MessageCircle, Copy, CheckCircle2, Clock, Share2, Edit2, Trash2, PlusCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useState } from 'react';
 
 interface GoalSummaryProps {
+  isEditing: boolean;
+  setIsEditing: (val: boolean) => void;
+  handleDeleteGoal: () => void;
+  setShowPixModal: (val: boolean) => void;
+  setCurrentPayer: (val: "P1" | "P2") => void;
+  goalType: "individual" | "shared";
   results: any;
+  savedP1: string;
+  savedP2: string;
   nameP1: string;
   nameP2: string;
   contributionP1: string;
@@ -17,6 +25,7 @@ interface GoalSummaryProps {
   phoneP1: string;
   phoneP2: string;
   itemName: string;
+  months: string;
   formatCurrency: (value: number) => string;
   getFreqLabel: (freq: string) => string;
   handleExportText: () => void;
@@ -24,7 +33,15 @@ interface GoalSummaryProps {
 }
 
 export function GoalSummary({
+  isEditing,
+  setIsEditing,
+  handleDeleteGoal,
+  setShowPixModal,
+  setCurrentPayer,
+  goalType,
   results,
+  savedP1,
+  savedP2,
   nameP1,
   nameP2,
   contributionP1,
@@ -34,6 +51,7 @@ export function GoalSummary({
   phoneP1,
   phoneP2,
   itemName,
+  months,
   formatCurrency,
   getFreqLabel,
   handleExportText,
@@ -128,158 +146,203 @@ export function GoalSummary({
   };
 
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-rose-100 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-xl mb-2">
-                {nameP1.charAt(0).toUpperCase()}
-              </div>
-              <h4 className="font-semibold text-slate-700">{nameP1} <span className="text-slate-400 font-normal text-sm">({contributionP1}%)</span></h4>
-              
-              <div className="space-y-2 w-full mt-2">
-                <div className="flex justify-between items-center bg-rose-50 p-2 rounded border border-rose-100">
-                  <span className="text-sm font-medium text-rose-700">{getFreqLabel(frequencyP1)}</span>
-                  <span className="font-bold text-rose-700 text-lg">{formatCurrency(results.installmentP1)}</span>
-                </div>
-                {results.isLateP1 && <p className="text-xs text-red-500 font-bold animate-pulse">Este pagamento está em atraso!</p>}
-                <Button 
-                  variant={results.isLateP1 ? "default" : "outline"}
-                  size="sm" 
-                  className={`w-full ${results.isLateP1 ? "bg-red-500 hover:bg-red-600 text-white" : "text-rose-600 border-rose-200 hover:bg-rose-50"}`}
-                  onClick={() => handleCharge(nameP1, phoneP1, results.installmentP1)}
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  {results.isLateP1 ? "Cobrar Atraso" : "Lembrar Pagamento"}
-                </Button>
-              </div>
+    <div className="space-y-6">
+      
+      {/* MAIN GOAL CARD */}
+      <Card className="bg-rose-50 border-rose-100/60 rounded-[2.5rem] shadow-sm relative overflow-hidden">
+        <CardContent className="p-6 md:p-8">
+          <div className="flex justify-between items-start mb-8">
+             <div>
+               <h2 className="text-2xl font-bold text-slate-900">{itemName || "Nova Meta"}</h2>
+               <p className="text-sm text-slate-500 mt-1">{goalType === 'individual' ? nameP1 : `${nameP1} & ${nameP2}`}</p>
+             </div>
+             <div className="flex gap-1">
+               <button onClick={handleExportText} className="p-2 text-rose-400 hover:text-rose-600 transition-colors"><Share2 className="w-5 h-5"/></button>
+               <button onClick={() => setIsEditing(!isEditing)} className="p-2 text-rose-400 hover:text-rose-600 transition-colors"><Edit2 className="w-5 h-5"/></button>
+               <button onClick={handleDeleteGoal} className="p-2 text-rose-400 hover:text-rose-600 transition-colors"><Trash2 className="w-5 h-5"/></button>
+             </div>
+          </div>
 
-              <div className="w-full h-px bg-slate-100 my-2"></div>
-              <p className="text-xs text-slate-400">Total a juntar: {formatCurrency(results.totalP1)}</p>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="flex flex-col items-center justify-center relative pl-2">
+               {/* Progress visualization drawn shape */}
+               <svg width="70" height="25" viewBox="0 0 70 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute top-[-25px] left-[50%] ml-[-35px] transform -rotate-[15deg]">
+                 <path d="M4 16C15 6 45 2 66 12" stroke="#f43f5e" strokeWidth="12" strokeLinecap="round" />
+               </svg>
+               <span className="text-[3.5rem] leading-none font-black text-rose-500 tracking-tighter mb-2">{Math.floor(results.progressPercent)}%</span>
+               <span className="text-lg font-bold text-slate-800">{formatCurrency(results.saved)}</span>
+               <span className="text-[13px] text-slate-400 mt-1">de {formatCurrency(results.total)}</span>
+             </div>
+             <div className="space-y-3">
+               <div className="bg-white rounded-[1.5rem] p-4 py-5 shadow-sm border border-slate-50/50">
+                  <div className="flex items-center gap-2 text-slate-400 mb-1">
+                     <Clock className="w-4 h-4"/>
+                     <span className="text-xs font-medium">Prazo</span>
+                  </div>
+                  <span className="font-bold text-slate-800 text-sm">{months}m</span>
+               </div>
+               <div className="bg-white rounded-[1.5rem] p-4 py-5 shadow-sm border border-slate-50/50">
+                  <div className="flex items-center gap-2 text-slate-400 mb-1">
+                     <TrendingUp className="w-4 h-4"/>
+                     <span className="text-xs font-medium">Restante</span>
+                  </div>
+                  <span className="font-bold text-slate-800 text-sm">{formatCurrency(results.total - results.saved)}</span>
+               </div>
+             </div>
+          </div>
 
-        <Card className="border-rose-100 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xl mb-2">
-                {nameP2.charAt(0).toUpperCase()}
-              </div>
-              <h4 className="font-semibold text-slate-700">{nameP2} <span className="text-slate-400 font-normal text-sm">({contributionP2}%)</span></h4>
-              
-              <div className="space-y-2 w-full mt-2">
-                <div className="flex justify-between items-center bg-slate-100 p-2 rounded border border-slate-200">
-                  <span className="text-sm font-medium text-slate-700">{getFreqLabel(frequencyP2)}</span>
-                  <span className="font-bold text-slate-700 text-lg">{formatCurrency(results.installmentP2)}</span>
-                </div>
-                {results.isLateP2 && <p className="text-xs text-red-500 font-bold animate-pulse">Este pagamento está em atraso!</p>}
-                <Button 
-                  variant={results.isLateP2 ? "default" : "outline"}
-                  size="sm" 
-                  className={`w-full ${results.isLateP2 ? "bg-red-500 hover:bg-red-600 text-white" : "text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-                  onClick={() => handleCharge(nameP2, phoneP2, results.installmentP2)}
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  {results.isLateP2 ? "Cobrar Atraso" : "Lembrar Pagamento"}
-                </Button>
-              </div>
-
-              <div className="w-full h-px bg-slate-100 my-2"></div>
-              <p className="text-xs text-slate-400">Total a juntar: {formatCurrency(results.totalP2)}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Chart */}
-      <Card className="border-rose-100 shadow-sm">
-        <CardHeader className="bg-white/50 border-b border-rose-50/50 pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <TrendingUp className="w-5 h-5 text-rose-500" />
-            Projeção da Meta
-          </CardTitle>
-          <Button variant="outline" size="sm" onClick={handleExportText} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Enviar p/ WhatsApp
-          </Button>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={results.chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#64748b' }} 
-                  dy={10}
-                />
-                <YAxis 
-                  hide 
-                  domain={[0, 'dataMax + 1000']} 
-                />
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: '#f1f5f9' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <ReferenceLine y={results.total} stroke="#10b981" strokeDasharray="3 3" label={{ position: 'top', value: 'Meta', fill: '#10b981', fontSize: 12 }} />
-                <Bar dataKey="acumulado" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-8 text-center text-rose-500 text-[15px] font-medium tracking-tight">
+             Bom começo! Mantenham a consistência.
           </div>
         </CardContent>
       </Card>
 
+      {/* CONTRIBUTIONS OVERVIEW */}
+      {!isEditing && (
+        <div className="space-y-4 pt-2">
+          <div className="uppercase tracking-widest text-[13px] font-bold text-rose-900/40 pl-2">
+            Contribuições
+          </div>
+
+          <Card className="rounded-[2rem] border-rose-50 shadow-sm relative overflow-hidden bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4 mb-5">
+                 <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 font-bold text-xl shrink-0">
+                   {nameP1.charAt(0).toUpperCase()}
+                 </div>
+                 <div>
+                   <h3 className="font-bold text-slate-800 text-lg leading-tight">{nameP1}</h3>
+                   <p className="text-[13px] text-slate-400 font-medium">{contributionP1}% da meta</p>
+                 </div>
+              </div>
+
+              <div className="w-full bg-rose-50 h-2 rounded-full mb-6 relative overflow-hidden">
+                <div className="bg-rose-500 h-full rounded-full transition-all duration-1000 ease-in-out" style={{ width: `${Math.min(100, (Number(savedP1) / results.totalP1) * 100)}%` }}></div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-6 divide-x divide-slate-100">
+                 <div className="flex flex-col text-left">
+                   <span className="text-[11px] text-slate-500 mb-1">Guardado</span>
+                   <span className="text-[15px] font-bold text-slate-800">{formatCurrency(Number(savedP1))}</span>
+                 </div>
+                 <div className="flex flex-col text-center">
+                   <span className="text-[11px] text-rose-400 mb-1">Restante</span>
+                   <span className="text-[15px] font-bold text-rose-500">{formatCurrency(results.remainingP1)}</span>
+                 </div>
+                 <div className="flex flex-col text-right">
+                   <span className="text-[11px] text-rose-400 mb-1">{getFreqLabel(frequencyP1)}</span>
+                   <span className="text-[15px] font-bold text-rose-500">{formatCurrency(results.installmentP1)}</span>
+                 </div>
+              </div>
+
+              <div className="flex gap-3">
+                 <Button className="flex-1 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-2xl shadow-sm h-14 font-semibold text-[15px]" onClick={() => { setCurrentPayer('P1'); setShowPixModal(true); }}>
+                   <PlusCircle className="w-5 h-5 mr-2"/>
+                   Registrar pagamento
+                 </Button>
+                 <Button variant="outline" className="flex-none px-6 h-14 rounded-2xl border-rose-100/60 text-slate-500 bg-rose-50/30 hover:bg-rose-50 font-medium" onClick={() => handleCharge(nameP1, phoneP1, results.installmentP1)}>
+                   <MessageCircle className="w-5 h-5 mr-2"/>
+                   Lembrar
+                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {goalType === 'shared' && (
+            <Card className="rounded-[2rem] border-rose-50 shadow-sm relative overflow-hidden bg-white">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4 mb-5">
+                   <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 font-bold text-xl shrink-0">
+                     {nameP2.charAt(0).toUpperCase()}
+                   </div>
+                   <div>
+                     <h3 className="font-bold text-slate-800 text-lg leading-tight">{nameP2}</h3>
+                     <p className="text-[13px] text-slate-400 font-medium">{contributionP2}% da meta</p>
+                   </div>
+                </div>
+
+                <div className="w-full bg-rose-50 h-2 rounded-full mb-6 relative overflow-hidden">
+                  <div className="bg-rose-500 h-full rounded-full transition-all duration-1000 ease-in-out" style={{ width: `${Math.min(100, (Number(savedP2) / results.totalP2) * 100)}%` }}></div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mb-6 divide-x divide-slate-100">
+                   <div className="flex flex-col text-left">
+                     <span className="text-[11px] text-slate-500 mb-1">Guardado</span>
+                     <span className="text-[15px] font-bold text-slate-800">{formatCurrency(Number(savedP2))}</span>
+                   </div>
+                   <div className="flex flex-col text-center">
+                     <span className="text-[11px] text-rose-400 mb-1">Restante</span>
+                     <span className="text-[15px] font-bold text-rose-500">{formatCurrency(results.remainingP2)}</span>
+                   </div>
+                   <div className="flex flex-col text-right">
+                     <span className="text-[11px] text-rose-400 mb-1">{getFreqLabel(frequencyP2)}</span>
+                     <span className="text-[15px] font-bold text-rose-500">{formatCurrency(results.installmentP2)}</span>
+                   </div>
+                </div>
+
+                <div className="flex gap-3">
+                   <Button className="flex-1 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-2xl shadow-sm h-14 font-semibold text-[15px]" onClick={() => { setCurrentPayer('P2'); setShowPixModal(true); }}>
+                     <PlusCircle className="w-5 h-5 mr-2"/>
+                     Registrar pagamento
+                   </Button>
+                   <Button variant="outline" className="flex-none px-6 h-14 rounded-2xl border-rose-100/60 text-slate-500 bg-rose-50/30 hover:bg-rose-50 font-medium" onClick={() => handleCharge(nameP2, phoneP2, results.installmentP2)}>
+                     <MessageCircle className="w-5 h-5 mr-2"/>
+                     Lembrar
+                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+        </div>
+      )}
+
       {chargeModalState.isOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-            <CardHeader className="bg-emerald-50 border-b border-emerald-100 rounded-t-xl">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-2xl rounded-3xl animate-in fade-in zoom-in duration-200">
+            <CardHeader className="bg-emerald-50 border-b border-emerald-100 rounded-t-3xl p-6">
               <CardTitle className="text-emerald-800">Enviar Cobrança</CardTitle>
-              <CardDescription className="text-emerald-600">
+              <CardDescription className="text-emerald-600 mt-1">
                 O WhatsApp envia apenas uma mensagem por vez no atalho automático. Complete o envio em 2 passos.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
+            <CardContent className="space-y-4 p-6">
               
               <div className="space-y-3">
                 <Button 
                   onClick={sendWhatsAppMsg} 
-                  className="w-full bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 flex justify-start h-auto p-4 relative shadow-sm"
+                  className="w-full bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 flex justify-start h-auto p-4 rounded-2xl relative shadow-sm"
                 >
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold mr-3 shrink-0">1</div>
+                  <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mr-4 shrink-0">1</div>
                   <div className="text-left font-normal overflow-hidden w-full">
                     <span className="block font-bold text-slate-900 mb-1">Clica aqui para Enviar Mensagem</span>
                     <span className="text-xs text-slate-500 truncate block">"{chargeModalState.text}"</span>
                   </div>
-                  <MessageCircle className="w-5 h-5 text-emerald-600 shrink-0 ml-2" />
+                  <MessageCircle className="w-5 h-5 text-emerald-500 shrink-0 ml-2" />
                 </Button>
 
                 <Button 
                   onClick={sendWhatsAppPix} 
-                  className="w-full bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 flex justify-start h-auto p-4 relative shadow-sm"
+                  className="w-full bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 flex justify-start h-auto p-4 rounded-2xl relative shadow-sm"
                 >
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold mr-3 shrink-0">2</div>
+                  <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mr-4 shrink-0">2</div>
                   <div className="text-left font-normal overflow-hidden w-full">
                     <span className="block font-bold text-emerald-900 mb-1">Clica aqui para Enviar Código Pix</span>
-                    <span className="text-xs text-emerald-600/70 truncate block">{chargeModalState.pixCode}</span>
+                    <span className="text-xs text-emerald-600/80 truncate block">{chargeModalState.pixCode}</span>
                   </div>
-                  <MessageCircle className="w-5 h-5 text-emerald-600 shrink-0 ml-2" />
+                  <MessageCircle className="w-5 h-5 text-emerald-500 shrink-0 ml-2" />
                 </Button>
               </div>
 
             </CardContent>
-            <CardFooter className="flex justify-center border-t border-slate-100 bg-slate-50/50 p-4 rounded-b-xl gap-2">
-              <Button variant="ghost" className="w-full" onClick={() => setChargeModalState(prev => ({...prev, isOpen: false}))}>
+            <CardFooter className="flex justify-center border-t border-slate-100 bg-slate-50/50 p-4 rounded-b-3xl gap-2">
+              <Button variant="ghost" className="w-full rounded-2xl h-12 text-slate-500" onClick={() => setChargeModalState(prev => ({...prev, isOpen: false}))}>
                 Fechar
               </Button>
             </CardFooter>
           </Card>
         </div>
       )}
-    </>
+    </div>
   );
 }

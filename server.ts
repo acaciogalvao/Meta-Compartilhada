@@ -25,6 +25,7 @@ const paymentSchema = new mongoose.Schema({
 
 const goalSchema = new mongoose.Schema({
   _id: { type: String, default: "default_goal" },
+  type: { type: String, default: "shared" }, // 'individual' or 'shared'
   itemName: String,
   totalValue: Number,
   months: Number,

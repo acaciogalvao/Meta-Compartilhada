@@ -5,15 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, MessageCircle, QrCode, Copy, CheckCircle2, Trash2 } from 'lucide-react';
+import { Heart, Target, Calculator, RefreshCcw, Download, TrendingUp, Sparkles, MessageCircle, QrCode, Copy, CheckCircle2, Trash2, Home, List, Plus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { PaymentHistory } from './components/PaymentHistory';
 import { PixModal } from './components/PixModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ClearHistoryConfirmModal } from './components/ClearHistoryConfirmModal';
 import { GoalSummary } from './components/GoalSummary';
-import { GoalConfig } from './components/GoalConfig';
-import { GoalDivision } from './components/GoalDivision';
+import { GoalForm } from './components/GoalForm';
 import confetti from 'canvas-confetti';
 
 export default function App() {
@@ -25,6 +24,7 @@ export default function App() {
   const [totalValue, setTotalValue] = useState("");
   const [months, setMonths] = useState("12");
   const [contributionP1, setContributionP1] = useState("50");
+  const [goalType, setGoalType] = useState<"individual" | "shared">("shared");
   const [savedP1, setSavedP1] = useState("");
   const [savedP2, setSavedP2] = useState("");
   const [paymentsHistory, setPaymentsHistory] = useState<any[]>([]);
@@ -61,6 +61,9 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const [activeTab, setActiveTab] = useState<"inicio" | "historico">("inicio");
+  const [isEditing, setIsEditing] = useState(false);
+
   // Fetch data from MongoDB
   const clearGoalData = () => {
     setCurrentGoalId("");
@@ -68,6 +71,7 @@ export default function App() {
     setTotalValue("");
     setMonths("12");
     setContributionP1("50");
+    setGoalType("shared");
     setNameP1("Você");
     setNameP2("Seu Amor");
     setPhoneP1("");
@@ -89,6 +93,7 @@ export default function App() {
       if (data.totalValue !== undefined) setTotalValue(data.totalValue.toString());
       if (data.months !== undefined) setMonths(data.months.toString());
       if (data.contributionP1 !== undefined) setContributionP1(data.contributionP1.toString());
+      if (data.type !== undefined) setGoalType(data.type);
       if (data.nameP1 !== undefined) setNameP1(data.nameP1);
       if (data.nameP2 !== undefined) setNameP2(data.nameP2);
       if (data.phoneP1 !== undefined) setPhoneP1(data.phoneP1);
@@ -247,10 +252,11 @@ export default function App() {
   const handleSaveGoals = async () => {
     try {
       const updates = {
+        type: goalType,
         itemName,
         totalValue: Number(totalValue),
         months: Number(months),
-        contributionP1: Number(contributionP1),
+        contributionP1: goalType === "individual" ? 100 : Number(contributionP1),
         nameP1,
         nameP2,
         phoneP1,
@@ -262,7 +268,7 @@ export default function App() {
         dueDayP1,
         dueDayP2,
         savedP1: Number(savedP1),
-        savedP2: Number(savedP2)
+        savedP2: goalType === "individual" ? 0 : Number(savedP2)
       };
 
       let res;
@@ -302,6 +308,8 @@ export default function App() {
 
   const handleCreateNewGoal = () => {
     clearGoalData();
+    setIsEditing(true);
+    setActiveTab("inicio");
   };
 
   const handleClearHistoryClick = () => {
@@ -668,13 +676,16 @@ export default function App() {
   };
 
   const handleExportText = () => {
-    const text = `
+    let text = `
 🎯 Nossa Meta: ${itemName || 'Sem nome'}
 💰 Valor Total: ${formatCurrency(results.total)}
 ⏳ Prazo: ${results.time} meses
-✅ Já guardamos: ${formatCurrency(results.saved)} (${results.progressPercent.toFixed(1)}%)
+✅ Já guardamo${goalType === 'individual' ? 's' : 's'}: ${formatCurrency(results.saved)} (${results.progressPercent.toFixed(1)}%)
 📉 Falta: ${formatCurrency(results.remaining)}
+`;
 
+    if (goalType === "shared") {
+      text += `
 📊 Resumo Individual:
 👤 ${nameP1} (${contributionP1}%):
    - Já pagou: ${formatCurrency(Number(savedP1) || 0)}
@@ -688,10 +699,18 @@ export default function App() {
 
 💵 Total das parcelas por mês: ${formatCurrency(results.monthlyTotal)}
 
-Bora conquistar juntos! ❤️
-    `.trim();
+Bora conquistar juntos! ❤️`;
+    } else {
+      text += `
+📊 Meu Resumo:
+   - Já paguei: ${formatCurrency(Number(savedP1) || 0)}
+   - Falta pagar: ${formatCurrency(results.remainingP1)}
+   - Parcela: ${formatCurrency(results.installmentP1)} ${getFreqLabel(frequencyP1).toLowerCase()}
 
-    const encodedText = encodeURIComponent(text);
+Bora conquistar! 💪`;
+    }
+
+    const encodedText = encodeURIComponent(text.trim());
     window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
   };
 
@@ -702,149 +721,107 @@ Bora conquistar juntos! ❤️
           {toastMessage.text}
         </div>
       )}
-      <div className="max-w-4xl mx-auto space-y-6">
+
+      {isEditing && (
+        <GoalForm
+          goalType={goalType}
+          setGoalType={setGoalType}
+          itemName={itemName}
+          setItemName={setItemName}
+          totalValue={totalValue}
+          setTotalValue={setTotalValue}
+          months={months}
+          setMonths={setMonths}
+          nameP1={nameP1}
+          setNameP1={setNameP1}
+          nameP2={nameP2}
+          setNameP2={setNameP2}
+          pixKeyP1={pixKeyP1}
+          setPixKeyP1={setPixKeyP1}
+          pixKeyP2={pixKeyP2}
+          setPixKeyP2={setPixKeyP2}
+          phoneP1={phoneP1}
+          setPhoneP1={setPhoneP1}
+          phoneP2={phoneP2}
+          setPhoneP2={setPhoneP2}
+          contributionP1={contributionP1}
+          setContributionP1={setContributionP1}
+          frequencyP1={frequencyP1}
+          setFrequencyP1={setFrequencyP1}
+          frequencyP2={frequencyP2}
+          setFrequencyP2={setFrequencyP2}
+          formatCurrency={formatCurrency}
+          handleCurrencyChange={handleCurrencyChange}
+          onCancel={() => setIsEditing(false)}
+          onSave={async () => {
+            await handleSaveGoals();
+            setIsEditing(false);
+          }}
+        />
+      )}
+
+      <div className={`max-w-4xl mx-auto space-y-6 ${isEditing ? 'hidden' : ''}`}>
         
         {/* Header */}
-        <div className="text-center space-y-2 mb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-rose-100 rounded-full mb-2">
-            <Heart className="w-8 h-8 text-rose-500 fill-rose-500" />
+        <div className="flex justify-between items-start mb-6 px-2 mt-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-rose-500 tracking-tight leading-none">{goalType === 'individual' ? 'Meta Individual' : 'Meta Compartilhada'}</h1>
+            <p className="text-sm text-rose-400 mt-1">{goalType === 'individual' ? 'Acompanhe o seu progresso financeiro' : 'Seus sonhos em casal'}</p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Meta Compartilhada</h1>
-          <p className="text-slate-500 max-w-lg mx-auto">Calculem juntos como alcançar os sonhos do casal de forma justa e transparente.</p>
+          <Button onClick={handleCreateNewGoal} className="w-10 h-10 rounded-full bg-rose-500 hover:bg-rose-600 shadow-sm p-0 flex items-center justify-center shrink-0">
+            <Plus className="w-5 h-5 text-white" />
+          </Button>
         </div>
 
-        {/* Goals List */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+        {/* Goals List Navigation */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-2 scrollbar-hide px-2">
           {goalsList.map(goal => (
             <Button 
               key={goal._id} 
               variant={currentGoalId === goal._id ? "default" : "outline"}
-              className={currentGoalId === goal._id ? "bg-rose-600 hover:bg-rose-700 whitespace-nowrap" : "text-slate-600 whitespace-nowrap"}
-              onClick={() => setCurrentGoalId(goal._id)}
+              className={`${currentGoalId === goal._id ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-500" : "text-slate-500 border-slate-200 bg-white hover:bg-slate-50"} whitespace-nowrap rounded-full h-8 px-4 text-xs font-semibold tracking-wide`}
+              onClick={() => { setCurrentGoalId(goal._id); setIsEditing(false); }}
             >
               {goal.itemName || "Nova Meta"}
             </Button>
           ))}
-          <Button variant="outline" onClick={handleCreateNewGoal} className="border-dashed border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 whitespace-nowrap">
-            + Criar Nova Meta
-          </Button>
         </div>
 
-        <div className="flex justify-end gap-2 mb-4">
-          <Button onClick={handleDeleteGoal} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Excluir Meta
-          </Button>
-          <Button onClick={handleSaveGoals} className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm">
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Salvar Metas
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          
-          {/* Left Column: Inputs */}
-          <div className="md:col-span-5 space-y-6">
-            <GoalConfig 
-              itemName={itemName}
-              setItemName={setItemName}
-              totalValue={totalValue}
-              setTotalValue={setTotalValue}
-              savedP1={savedP1}
-              setSavedP1={setSavedP1}
-              savedP2={savedP2}
-              setSavedP2={setSavedP2}
-              months={months}
-              setMonths={setMonths}
-              nameP1={nameP1}
-              nameP2={nameP2}
-              pixKeyP1={pixKeyP1}
-              setPixKeyP1={setPixKeyP1}
-              pixKeyP2={pixKeyP2}
-              setPixKeyP2={setPixKeyP2}
-              formatCurrency={formatCurrency}
-              handleCurrencyChange={handleCurrencyChange}
-              setCurrentPayer={setCurrentPayer}
-              setPixAmount={setPixAmount}
-              setShowPixModal={setShowPixModal}
-              installmentP1={results.installmentP1}
-              installmentP2={results.installmentP2}
-            />
-
-            <GoalDivision 
-              nameP1={nameP1}
-              setNameP1={setNameP1}
-              nameP2={nameP2}
-              setNameP2={setNameP2}
-              contributionP1={contributionP1}
-              setContributionP1={setContributionP1}
-              contributionP2={contributionP2}
-              frequencyP1={frequencyP1}
-              setFrequencyP1={setFrequencyP1}
-              frequencyP2={frequencyP2}
-              setFrequencyP2={setFrequencyP2}
-              dueDayP1={dueDayP1}
-              setDueDayP1={setDueDayP1}
-              dueDayP2={dueDayP2}
-              setDueDayP2={setDueDayP2}
-              phoneP1={phoneP1}
-              setPhoneP1={setPhoneP1}
-              phoneP2={phoneP2}
-              setPhoneP2={setPhoneP2}
-              hasPayments={paymentsHistory.length > 0}
-            />
-
-            <Card className="border-rose-100 shadow-sm">
-              <CardFooter className="bg-slate-50 border-t flex justify-between pt-6">
-                <Button variant="outline" onClick={handleReset} className="w-full text-slate-600">
-                  <RefreshCcw className="w-4 h-4 mr-2" />
-                  Limpar Dados
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-
-          {/* Right Column: Results */}
-          <div className="md:col-span-7 space-y-6">
-            
-            {/* Progress Card */}
-            <Card className="border-rose-100 shadow-sm overflow-hidden relative">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-400 to-orange-400"></div>
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-end mb-2">
-                  <div>
-                    <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wider">Progresso Atual</h3>
-                    <p className="text-2xl font-bold text-slate-800">{formatCurrency(results.saved)} <span className="text-sm font-normal text-slate-500">de {formatCurrency(results.total)}</span></p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-rose-500">{results.progressPercent.toFixed(1)}%</span>
-                  </div>
-                </div>
-                <Progress value={results.progressPercent} className="h-3 bg-rose-100 [&>div]:bg-rose-500" />
-                <div className="mt-4 flex items-start gap-3 bg-rose-50 p-3 rounded-lg border border-rose-100">
-                  <Sparkles className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-rose-800 font-medium">{getMotivationalMessage(results.progressPercent)}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <GoalSummary 
-              results={results}
-              nameP1={nameP1}
-              nameP2={nameP2}
-              contributionP1={contributionP1}
-              contributionP2={contributionP2}
-              frequencyP1={frequencyP1}
-              frequencyP2={frequencyP2}
-              phoneP1={phoneP1}
-              phoneP2={phoneP2}
-              itemName={itemName}
-              formatCurrency={formatCurrency}
-              getFreqLabel={getFreqLabel}
-              handleExportText={handleExportText}
-              showToast={showToast}
-            />
-
+        {activeTab === "inicio" ? (
+          <>
+            <div className={`grid grid-cols-1 md:grid-cols-12 gap-6 ${isEditing ? 'hidden' : ''}`}>
+              {/* Right Column: Results */}
+              <div className="md:col-span-12 lg:col-span-12 space-y-6">
+                <GoalSummary 
+                  isEditing={isEditing}
+                  setIsEditing={setIsEditing}
+                  handleDeleteGoal={handleDeleteGoal}
+                  setShowPixModal={setShowPixModal}
+                  setCurrentPayer={setCurrentPayer}
+                  goalType={goalType}
+                  results={results}
+                  savedP1={savedP1}
+                  savedP2={savedP2}
+                  nameP1={nameP1}
+                  nameP2={nameP2}
+                  contributionP1={contributionP1}
+                  contributionP2={contributionP2}
+                  frequencyP1={frequencyP1}
+                  frequencyP2={frequencyP2}
+                  phoneP1={phoneP1}
+                  phoneP2={phoneP2}
+                  itemName={itemName}
+                  months={months}
+                  formatCurrency={formatCurrency}
+                  getFreqLabel={getFreqLabel}
+                  handleExportText={handleExportText}
+                  showToast={showToast}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mb-24">
             <PaymentHistory 
               paymentsHistory={paymentsHistory}
               nameP1={nameP1}
@@ -853,9 +830,26 @@ Bora conquistar juntos! ❤️
               progressPercent={results.progressPercent}
               handleClearHistory={handleClearHistoryClick}
             />
-
           </div>
-        </div>
+        )}
+      </div>
+      
+      {/* Bottom Navigation for Mobile */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex justify-around items-center p-3 z-40 pb-safe md:hidden">
+        <button 
+          onClick={() => setActiveTab("inicio")} 
+          className={`flex flex-col items-center gap-1 w-full ${activeTab === 'inicio' ? 'text-rose-500' : 'text-slate-400'}`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] font-medium uppercase tracking-wider">Início</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("historico")} 
+          className={`flex flex-col items-center gap-1 w-full ${activeTab === 'historico' ? 'text-rose-500' : 'text-slate-400'}`}
+        >
+          <List className="w-5 h-5" />
+          <span className="text-[10px] font-medium uppercase tracking-wider">Histórico</span>
+        </button>
       </div>
       
       <DeleteConfirmModal 
@@ -878,6 +872,10 @@ Bora conquistar juntos! ❤️
         nameP2={nameP2}
         pixAmount={pixAmount}
         setPixAmount={setPixAmount}
+        installmentP1={results.installmentP1}
+        installmentP2={results.installmentP2}
+        remainingP1={results.remainingP1}
+        remainingP2={results.remainingP2}
         pixCode={pixCode}
         setPixCode={setPixCode}
         qrCodeBase64={qrCodeBase64}
