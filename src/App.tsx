@@ -715,15 +715,16 @@ Bora conquistar! 💪`;
   };
 
   return (
-    <div className="min-h-screen bg-rose-50 text-slate-800 p-4 md:p-8 font-sans selection:bg-rose-200 relative">
-      {toastMessage && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium transition-all ${toastMessage.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}>
-          {toastMessage.text}
-        </div>
-      )}
+    <div className="min-h-screen bg-slate-100 flex justify-center font-sans selection:bg-rose-200">
+      <div className="w-full max-w-md bg-rose-50 min-h-screen shadow-xl relative pb-20 overflow-x-hidden flex flex-col">
+        {toastMessage && (
+          <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all w-11/12 max-w-sm text-center ${toastMessage.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+            {toastMessage.text}
+          </div>
+        )}
 
-      {isEditing && (
-        <GoalForm
+        {isEditing && (
+          <GoalForm
           goalType={goalType}
           setGoalType={setGoalType}
           itemName={itemName}
@@ -760,10 +761,10 @@ Bora conquistar! 💪`;
         />
       )}
 
-      <div className={`max-w-4xl mx-auto space-y-6 ${isEditing ? 'hidden' : ''}`}>
+      <div className={`flex-1 p-4 space-y-6 ${isEditing ? 'hidden' : ''}`}>
         
         {/* Header */}
-        <div className="flex justify-between items-start mb-6 px-2 mt-4">
+        <div className="flex justify-between items-start mb-6 px-1 mt-2">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-rose-500 tracking-tight leading-none">{goalType === 'individual' ? 'Meta Individual' : 'Meta Compartilhada'}</h1>
             <p className="text-sm text-rose-400 mt-1">{goalType === 'individual' ? 'Acompanhe o seu progresso financeiro' : 'Seus sonhos em casal'}</p>
@@ -834,9 +835,9 @@ Bora conquistar! 💪`;
         )}
       </div>
       
-      {/* Bottom Navigation for Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex justify-around items-center p-3 z-40 pb-safe md:hidden">
-        <button 
+        {/* Bottom Navigation */}
+        <div className={`absolute bottom-0 w-full bg-white border-t border-slate-100 flex justify-around items-center p-3 z-40 pb-safe shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] rounded-t-2xl ${isEditing ? 'hidden' : ''}`}>
+          <button 
           onClick={() => setActiveTab("inicio")} 
           className={`flex flex-col items-center gap-1 w-full ${activeTab === 'inicio' ? 'text-rose-500' : 'text-slate-400'}`}
         >
@@ -864,32 +865,33 @@ Bora conquistar! 💪`;
         confirmClearHistory={confirmClearHistory}
       />
 
-      <PixModal 
-        showPixModal={showPixModal}
-        setShowPixModal={setShowPixModal}
-        currentPayer={currentPayer}
-        nameP1={nameP1}
-        nameP2={nameP2}
-        pixAmount={pixAmount}
-        setPixAmount={setPixAmount}
-        installmentP1={results.installmentP1}
-        installmentP2={results.installmentP2}
-        remainingP1={results.remainingP1}
-        remainingP2={results.remainingP2}
-        pixCode={pixCode}
-        setPixCode={setPixCode}
-        qrCodeBase64={qrCodeBase64}
-        isGeneratingPix={isGeneratingPix}
-        paymentSuccess={paymentSuccess}
-        copied={copied}
-        copyPixCode={copyPixCode}
-        handleGeneratePix={handleGeneratePix}
-        handleSimulatePayment={handleSimulatePayment}
-        isMockPayment={isMockPayment}
-        setIsMockPayment={setIsMockPayment}
-        formatCurrency={formatCurrency}
-        handleCurrencyChange={handleCurrencyChange}
-      />
+        <PixModal 
+          showPixModal={showPixModal}
+          setShowPixModal={setShowPixModal}
+          currentPayer={currentPayer}
+          nameP1={nameP1}
+          nameP2={nameP2}
+          pixAmount={pixAmount}
+          setPixAmount={setPixAmount}
+          installmentP1={results.installmentP1}
+          installmentP2={results.installmentP2}
+          remainingP1={results.remainingP1}
+          remainingP2={results.remainingP2}
+          pixCode={pixCode}
+          setPixCode={setPixCode}
+          qrCodeBase64={qrCodeBase64}
+          isGeneratingPix={isGeneratingPix}
+          paymentSuccess={paymentSuccess}
+          copied={copied}
+          copyPixCode={copyPixCode}
+          handleGeneratePix={handleGeneratePix}
+          handleSimulatePayment={handleSimulatePayment}
+          isMockPayment={isMockPayment}
+          setIsMockPayment={setIsMockPayment}
+          formatCurrency={formatCurrency}
+          handleCurrencyChange={handleCurrencyChange}
+        />
+      </div>
     </div>
   );
 }

@@ -149,12 +149,12 @@ export function GoalSummary({
     <div className="space-y-6">
       
       {/* MAIN GOAL CARD */}
-      <Card className="bg-rose-50 border-rose-100/60 rounded-[2.5rem] shadow-sm relative overflow-hidden">
-        <CardContent className="p-6 md:p-8">
-          <div className="flex justify-between items-start mb-8">
+      <Card className="bg-rose-50 border-rose-100/60 rounded-[2rem] shadow-sm relative overflow-hidden">
+        <CardContent className="p-5">
+          <div className="flex justify-between items-start mb-6">
              <div>
-               <h2 className="text-2xl font-bold text-slate-900">{itemName || "Nova Meta"}</h2>
-               <p className="text-sm text-slate-500 mt-1">{goalType === 'individual' ? nameP1 : `${nameP1} & ${nameP2}`}</p>
+               <h2 className="text-xl font-bold text-slate-900">{itemName || "Nova Meta"}</h2>
+               <p className="text-xs text-slate-500 mt-1">{goalType === 'individual' ? nameP1 : `${nameP1} & ${nameP2}`}</p>
              </div>
              <div className="flex gap-1">
                <button onClick={handleExportText} className="p-2 text-rose-400 hover:text-rose-600 transition-colors"><Share2 className="w-5 h-5"/></button>

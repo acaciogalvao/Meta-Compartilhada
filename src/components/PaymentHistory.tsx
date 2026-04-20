@@ -61,16 +61,16 @@ export function PaymentHistory({
 
   return (
     <>
-      <Card className="shadow-sm border-slate-200">
-        <CardHeader className="pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <Card className="shadow-sm border-0 bg-transparent">
+        <CardHeader className="pb-4 px-2">
           <div className="space-y-1">
             <CardTitle className="text-xl text-slate-800 flex items-center gap-2">
-              <span className="bg-rose-100 p-2 rounded-lg text-rose-600">
+              <span className="bg-rose-100 p-2 rounded-xl text-rose-600">
                 <Receipt className="w-5 h-5" />
               </span>
-              Histórico de Pagamentos
+              Extrato
             </CardTitle>
-            <CardDescription>Acompanhe todos os depósitos feitos na meta</CardDescription>
+            <CardDescription className="text-xs">Acompanhe todos os depósitos feitos</CardDescription>
           </div>
           <div className="flex gap-2 self-start sm:self-auto flex-wrap">
              {progressPercent >= 100 && paymentsHistory.length > 0 && (
@@ -86,15 +86,14 @@ export function PaymentHistory({
              )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2">
           {paymentsHistory.length > 0 && (
-             <div className="flex flex-wrap gap-3 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-2">
+             <div className="flex gap-2 mb-6 bg-white p-2 rounded-2xl shadow-sm border border-rose-50 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 pl-2">
                    <Calendar className="w-4 h-4 text-slate-400" />
-                   <span className="text-sm font-medium text-slate-600">Filtrar:</span>
                 </div>
                 <select 
-                  className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 p-1.5 outline-none"
+                  className="bg-slate-50 border-none text-slate-700 text-sm font-medium rounded-xl p-2 outline-none"
                   value={selectedMonth}
                   onChange={(e) => { setSelectedMonth(e.target.value); setVisibleCount(5); }}
                 >

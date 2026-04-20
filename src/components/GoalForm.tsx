@@ -55,9 +55,54 @@ export function GoalForm({
   onCancel, onSave
 }: GoalFormProps) {
   const [activeTab, setActiveTab] = useState<"meta" | "pessoas">("meta");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const commonMonths = ["3", "6", "12", "18", "24", "36", "48", "60"];
   const percentages = ["10", "20", "30", "40", "50", "60", "70", "80", "90"];
+
+  const formatPhone = (val: string) => {
+    val = val.replace(/\D/g, "");
+    if (val.length > 11) val = val.slice(0, 11);
+    if (val.length > 6) {
+      return `(${val.slice(0, 2)}) ${val.slice(2, 7)}-${val.slice(7)}`;
+    } else if (val.length > 2) {
+      return `(${val.slice(0, 2)}) ${val.slice(2)}`;
+    } else if (val.length > 0) {
+      return `(${val}`;
+    }
+    return val;
+  };
+
+  const handleValidation = () => {
+    const newErrors: Record<string, string> = {};
+    if (!itemName.trim()) newErrors.itemName = "O nome da meta é obrigatório.";
+    if (!totalValue || Number(totalValue) <= 0) newErrors.totalValue = "O valor deve ser maior que 0.";
+    if (!months || Number(months) <= 0) newErrors.months = "Informe o prazo.";
+    
+    if (activeTab === "pessoas") {
+      if (!nameP1.trim()) newErrors.nameP1 = "O nome é obrigatório.";
+      if (goalType === "shared" && !nameP2.trim()) newErrors.nameP2 = "O nome é obrigatório.";
+    }
+
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      // If errors are on the other tab, switch to it
+      if (newErrors.itemName || newErrors.totalValue || newErrors.months) {
+        if (activeTab !== "meta") setActiveTab("meta");
+      } else if (newErrors.nameP1 || newErrors.nameP2) {
+        if (activeTab !== "pessoas") setActiveTab("pessoas");
+      }
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveClick = () => {
+    if (handleValidation()) {
+      onSave();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-rose-50/30 z-[100] flex flex-col sm:max-w-md sm:mx-auto sm:relative sm:min-h-screen bg-white">
@@ -65,7 +110,7 @@ export function GoalForm({
       <div className="flex justify-between items-center p-4 bg-white sticky top-0 z-10 border-b border-rose-50">
         <button onClick={onCancel} className="text-slate-500 font-medium">Cancelar</button>
         <h2 className="font-bold text-slate-900 text-lg">{itemName ? 'Editar Meta' : 'Nova Meta'}</h2>
-        <button onClick={onSave} className="text-rose-500 font-medium">Salvar</button>
+        <button onClick={handleSaveClick} className="text-rose-500 font-medium">Salvar</button>
       </div>
 
       {/* Tabs */}
@@ -113,9 +158,13 @@ export function GoalForm({
               <Input 
                 id="itemName" 
                 value={itemName} 
-                onChange={(e) => setItemName(e.target.value)} 
-                className="rounded-xl border-rose-100 bg-white h-12 focus-visible:ring-rose-500"
+                onChange={(e) => {
+                  setItemName(e.target.value);
+                  if (errors.itemName) setErrors({ ...errors, itemName: "" });
+                }} 
+                className={`rounded-xl h-12 focus-visible:ring-rose-500 bg-white ${errors.itemName ? 'border-red-400 focus-visible:ring-red-500' : 'border-rose-100'}`}
               />
+              {errors.itemName && <p className="text-xs text-red-500 font-medium mt-1">{errors.itemName}</p>}
             </div>
 
             <div className="space-y-2">
@@ -124,19 +173,26 @@ export function GoalForm({
                 id="totalValue" 
                 inputMode="numeric"
                 value={totalValue === "" ? "" : formatCurrency(Number(totalValue))}
-                onChange={(e) => handleCurrencyChange(e, setTotalValue as any)} 
-                className="rounded-xl border-rose-100 bg-white h-12 focus-visible:ring-rose-500"
+                onChange={(e) => {
+                  handleCurrencyChange(e, setTotalValue as any);
+                  if (errors.totalValue) setErrors({ ...errors, totalValue: "" });
+                }} 
+                className={`rounded-xl h-12 focus-visible:ring-rose-500 bg-white ${errors.totalValue ? 'border-red-400 focus-visible:ring-red-500' : 'border-rose-100'}`}
               />
+              {errors.totalValue && <p className="text-xs text-red-500 font-medium mt-1">{errors.totalValue}</p>}
             </div>
 
             <div className="space-y-3">
-              <Label className="text-rose-400 font-medium text-xs uppercase tracking-wider">Prazo em meses — {months} meses</Label>
+              <Label className="text-rose-400 font-medium text-xs uppercase tracking-wider">Prazo em meses — {months} meses *</Label>
               <div className="flex items-center gap-3">
-                <div className="flex bg-white border border-rose-100 rounded-xl overflow-hidden shadow-sm h-12">
+                <div className={`flex bg-white border rounded-xl overflow-hidden shadow-sm h-12 ${errors.months ? 'border-red-400' : 'border-rose-100'}`}>
                   <Input 
                     type="number"
                     value={months}
-                    onChange={(e) => setMonths(e.target.value)}
+                    onChange={(e) => {
+                      setMonths(e.target.value);
+                      if (errors.months) setErrors({ ...errors, months: "" });
+                    }}
                     className="w-16 border-0 text-center font-bold text-slate-800 focus-visible:ring-0 h-full"
                   />
                   <div className="flex items-center px-3 text-slate-400 text-sm border-l border-rose-50 bg-rose-50/20">
@@ -191,11 +247,25 @@ export function GoalForm({
                <CardContent className="p-4 space-y-4">
                  <div className="space-y-1.5">
                    <Label className="text-rose-400/80 font-medium text-xs">Nome *</Label>
-                   <Input value={nameP1} onChange={e => setNameP1(e.target.value)} className="rounded-xl border-rose-100 bg-white h-11" />
+                   <Input 
+                     value={nameP1} 
+                     onChange={e => {
+                       setNameP1(e.target.value);
+                       if (errors.nameP1) setErrors({ ...errors, nameP1: "" });
+                     }} 
+                     className={`rounded-xl bg-white h-11 ${errors.nameP1 ? 'border-red-400 focus-visible:ring-red-500' : 'border-rose-100'}`} 
+                   />
+                   {errors.nameP1 && <p className="text-[10px] text-red-500 font-medium">{errors.nameP1}</p>}
                  </div>
                  <div className="space-y-1.5">
                    <Label className="text-rose-400/80 font-medium text-xs">WhatsApp</Label>
-                   <Input value={phoneP1} onChange={e => setPhoneP1(e.target.value)} className="rounded-xl border-rose-100 bg-white h-11" />
+                   <Input 
+                     type="tel"
+                     value={phoneP1} 
+                     onChange={e => setPhoneP1(formatPhone(e.target.value))} 
+                     placeholder="(99) 99999-9999"
+                     className="rounded-xl border-rose-100 bg-white h-11" 
+                   />
                  </div>
                  <div className="space-y-1.5">
                    <Label className="text-rose-400/80 font-medium text-xs">Chave Pix</Label>
@@ -224,14 +294,28 @@ export function GoalForm({
                  <div className="bg-rose-50/50 p-3 border-b border-rose-100">
                    <h3 className="font-bold text-rose-500">Pessoa 2</h3>
                  </div>
-                 <CardContent className="p-4 space-y-4">
+               <CardContent className="p-4 space-y-4">
                    <div className="space-y-1.5">
                      <Label className="text-rose-400/80 font-medium text-xs">Nome *</Label>
-                     <Input value={nameP2} onChange={e => setNameP2(e.target.value)} className="rounded-xl border-rose-100 bg-white h-11" />
+                     <Input 
+                       value={nameP2} 
+                       onChange={e => {
+                         setNameP2(e.target.value);
+                         if (errors.nameP2) setErrors({ ...errors, nameP2: "" });
+                       }} 
+                       className={`rounded-xl bg-white h-11 ${errors.nameP2 ? 'border-red-400 focus-visible:ring-red-500' : 'border-rose-100'}`} 
+                     />
+                     {errors.nameP2 && <p className="text-[10px] text-red-500 font-medium">{errors.nameP2}</p>}
                    </div>
                    <div className="space-y-1.5">
                      <Label className="text-rose-400/80 font-medium text-xs">WhatsApp</Label>
-                     <Input value={phoneP2} onChange={e => setPhoneP2(e.target.value)} className="rounded-xl border-rose-100 bg-white h-11" />
+                     <Input 
+                       type="tel"
+                       value={phoneP2} 
+                       onChange={e => setPhoneP2(formatPhone(e.target.value))} 
+                       placeholder="(99) 99999-9999"
+                       className="rounded-xl border-rose-100 bg-white h-11" 
+                     />
                    </div>
                    <div className="space-y-1.5">
                      <Label className="text-rose-400/80 font-medium text-xs">Chave Pix</Label>
