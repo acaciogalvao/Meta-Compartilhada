@@ -774,19 +774,7 @@ Bora conquistar! 💪`;
           </Button>
         </div>
 
-        {/* Goals List Navigation */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-2 scrollbar-hide px-2">
-          {goalsList.map(goal => (
-            <Button 
-              key={goal._id} 
-              variant={currentGoalId === goal._id ? "default" : "outline"}
-              className={`${currentGoalId === goal._id ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-500" : "text-slate-500 border-slate-200 bg-white hover:bg-slate-50"} whitespace-nowrap rounded-full h-8 px-4 text-xs font-semibold tracking-wide`}
-              onClick={() => { setCurrentGoalId(goal._id); setIsEditing(false); }}
-            >
-              {goal.itemName || "Nova Meta"}
-            </Button>
-          ))}
-        </div>
+
 
         {activeTab === "inicio" ? (
           <>
